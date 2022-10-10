@@ -1,0 +1,1 @@
+ogr2ogr  -f "PostgreSQL" PG:"dbname=mapillary user=postgres password=postgres" "d:/tsutsumida/github/Mapillary_LCmodel/fude/2021_012050.json" -nln "fude"
