@@ -1,0 +1,31 @@
+
+services:
+  db:
+    container_name: postgis_container
+    build: ./postgis-osm
+    environment:
+      POSTGRES_DB: postgre
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+    - ./docker/db/data:/var/lib/postgresql/data
+    - ./postgis-osm/sql:/docker-entrypoint-initdb.d
+    - ./postgis-osm/sql:/sql
+    - ./postgis-osm/sample:/sample
+    - ./postgis-osm/osm:/work/data/osm
+    - ./postgis-osm/pop_data:/work/data/pop_data
+    - ./work/ex1:/work/ex1
+    - ./work/sql_tutorial:/work/sql_tutorial
+    ports:
+    - 5432:5432
+
+  python:
+    container_name: python_container
+    build:
+      context: .
+      dockerfile: ./python/Dockerfile
+    working_dir: '/root/'
+    volumes:
+    - ./work/ex2:/work/ex2
+    - ./work/python:/work/python
+    tty: true

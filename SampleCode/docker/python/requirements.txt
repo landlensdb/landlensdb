@@ -1,0 +1,7 @@
+geopandas==0.10.2
+pygeos==0.12.0
+Shapely==1.8.2
+SQLAlchemy==1.4.36
+psycopg2==2.9.3
+matplotlib==3.5.2
+mapclassify==2.4.3
