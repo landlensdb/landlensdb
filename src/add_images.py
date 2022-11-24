@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import os
@@ -7,6 +8,7 @@ import requests
 from google.cloud import storage
 from tqdm import tqdm
 from shapely.geometry import Point
+
 
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/mapillary')
 TOKEN = os.environ.get('MAPILLARY_TOKEN', '')
@@ -90,9 +92,13 @@ def add_images(bbox, start_date, end_date, export_path):
           f'&end_captured_at={end_timestamp}&fields={fields}&bbox={bbox}&limit=2000'
 
     response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception("There was an error connecting to the Mapillary API. Please check that your token is correct "
+                        "and that your internet connection is stable.")
     image_list = response.json().get('data')
-    if len(image_list) == 2000:
-        raise Exception("Area too large. Please specify a smaller bbox.")
+    n_images = len(image_list)
+    if n_images == 2000:
+        raise Exception("Response data too large. Please specify a smaller bbox or narrower time range.")
     for image in tqdm(image_list):
         if image['id'] not in existing_images:
             image_id = image.get('id')
@@ -143,10 +149,40 @@ def add_images(bbox, start_date, end_date, export_path):
             cur.close()
             conn.close()
 
+    print(f'Successfully imported {n_images} records into the database.')
+
 
 if __name__ == '__main__':
-    # [140.8282500, 42.2625132, 141.1812100, 42.4647410],
-    add_images(
-        [140.8282500, 42.2625132, 141.1, 42.315],
-        '2019-10-22', '2019-10-24', 'test'
+    parser = argparse.ArgumentParser(
+        description='Download and import Mapillary imagery data into the data base and GCP Buckets'
     )
+    parser.add_argument(
+        "--bbox",
+        required=True,
+        help="Bounding Box of to use to search Mapillary images. Must be string of EPSG:4326 coordinates in form "
+             "'left,bottom,right,top' "
+    )
+    parser.add_argument(
+        "--start",
+        required=True,
+        help="Downloads images take from this date. Must be in the form YYYY-MM-DD"
+    )
+    parser.add_argument(
+        "--end",
+        required=True,
+        help="Downloads images take until this date. Must be in the form YYYY-MM-DD"
+    )
+    parser.add_argument(
+        "--image_directory",
+        default='images',
+        help="Directory on GCP bucket to save downloaded images."
+    )
+
+    args = parser.parse_args()
+
+    bbox = [float(x) for x in args.bbox.split(',')]
+    start = args.start
+    end = args.end
+    image_dir = args.image_directory
+
+    add_images(bbox, start, end, image_dir)
