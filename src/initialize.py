@@ -8,7 +8,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@lo
 def main():
     """
     Initializes project database tables and directories.
-    Args:
+    Parameters:
 
     Returns:
         void
@@ -20,7 +20,7 @@ def main():
     cur.execute(
          '''
             CREATE TABLE IF NOT EXISTS 
-            images (
+            mly_images (
                 id  bigint NOT NULL,
                 seq char(30),
                 altitude real,
@@ -40,8 +40,8 @@ def main():
                 geometry geography(POINT, 4326),
                 PRIMARY KEY(id)
             );
-            CREATE INDEX idx_computed_geom ON images USING gist (geometry);
-            CREATE INDEX idx_geom ON images USING gist (computed_geometry);
+            CREATE INDEX idx_computed_geom ON mly_images USING gist (geometry);
+            CREATE INDEX idx_geom ON mly_images USING gist (computed_geometry);
          '''
     )
     cur.close()

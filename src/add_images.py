@@ -19,14 +19,12 @@ def get_image_ids():
     """
     Gets a list of all mapillary image IDs from the database.
 
-    Args:
-
     Returns:
         list: list of mapillary image IDs.
     """
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
-    cur.execute("SELECT id FROM images")
+    cur.execute("SELECT id FROM mly_images")
     rows = cur.fetchall()
     images = [row[0] for row in rows]
     cur.close()
@@ -39,7 +37,7 @@ def add_images(bbox, start_date, end_date, export_path):
     """
     Inserts new image records to the database and saves a copy of the image one sequence at a time.
 
-    Args
+    Parameters
     ----------
     bbox : list
       list of coordinates that encompass the region of study. Specify in this order: left, bottom, right, top
@@ -49,7 +47,7 @@ def add_images(bbox, start_date, end_date, export_path):
     end_date: Character
       ending date (YYYY-MM-DD)
     export_path: Character
-      path to save downloaded images
+      path to save downloaded images on GCP storage bucket.
 
     Returns
     -------
@@ -129,7 +127,7 @@ def add_images(bbox, start_date, end_date, export_path):
             conn.autocommit = True
             cur.execute(
                 """
-                INSERT INTO images (
+                INSERT INTO mly_images (
                     id, seq, altitude, computed_altitude,
                     camera_parameters, camera_type, captured_at, compass_angle,
                     computed_compass_angle, exif_orientation,
