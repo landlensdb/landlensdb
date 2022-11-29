@@ -35,13 +35,43 @@ def get_image_ids():
     return images
 
 
-def add_images(bbox, start_date, end_date, export_path):
+def split_bbox(inner_bbox):
+    """
+    splits bounding box into quadrants
+
+    | q1 | q2 |
+    | -- | -- |
+    | q3 | q4 |
+
+    Parameters
+    ----------
+    inner_bbox : list
+      list of coordinates. Specify in this order: left, bottom, right, top
+      (or minLon, minLat, maxLon, maxLat).
+
+    Returns
+    -------
+        list: list of length 4. Each element is a list of coordinates that represent a bbox.
+    """
+    x1, y1, x2, y2 = inner_bbox[:]
+    xm = (x2 - x1)/2
+    ym = (y2 - y1)/2
+
+    q1 = [x1, y1, x1 + xm, y1 + ym]
+    q2 = [x1 + xm, y1, x2, y1 + ym]
+    q3 = [x1, y1 + ym, x1 + xm, y2]
+    q4 = [x1 + xm, y1 + ym, x2, y2]
+
+    return [q1, q2, q3, q4]
+
+
+def add_images(initial_bbox, start_date, end_date, export_path):
     """
     Inserts new image records to the database and saves a copy of the image one sequence at a time.
 
     Parameters
     ----------
-    bbox : list
+    initial_bbox : list
       list of coordinates that encompass the region of study. Specify in this order: left, bottom, right, top
       (or minLon, minLat, maxLon, maxLat).
     start_date: Character
@@ -57,7 +87,6 @@ def add_images(bbox, start_date, end_date, export_path):
     """
     existing_images = get_image_ids()
 
-    bbox = ','.join(str(i) for i in bbox)
     fields_list = [
         'id',
         'sequence',
@@ -88,18 +117,39 @@ def add_images(bbox, start_date, end_date, export_path):
     end_timestamp = datetime.datetime.strptime(end_date, '%Y-%m-%d').astimezone(tz).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
 
     base_url = 'https://graph.mapillary.com/images'
-    url = f'{base_url}?access_token={TOKEN}&start_captured_at={start_timestamp}' \
-          f'&end_captured_at={end_timestamp}&fields={fields}&bbox={bbox}&limit=2000'
 
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception("There was an error connecting to the Mapillary API. Please check that your token is correct "
-                        "and that your internet connection is stable.")
-    image_list = response.json().get('data')
-    n_images = len(image_list)
-    if n_images == 2000:
-        raise Exception("Response data too large. Please specify a smaller bbox or narrower time range.")
-    for image in tqdm(image_list):
+    bbox_list = list([initial_bbox])
+    images = []
+
+    # use a double ended queue (deque) and add to queue when necessary and remove when either box too large or complete
+    while len(bbox_list) > 0:
+        current_bbox = bbox_list[0]
+        bbox_string = ",".join(str(i) for i in current_bbox)
+        url = f'{base_url}?access_token={TOKEN}&start_captured_at={start_timestamp}' \
+              f'&end_captured_at={end_timestamp}&fields={fields}&bbox={bbox_string}' \
+              f'&limit=2000'
+
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise Exception(
+                "There was an error connecting to the Mapillary API. "
+                "Requested area/time frame may be too large. "
+                "Please check that your token is correct "
+                "and that your internet connection is stable.")
+
+        response_data = response.json().get('data')
+        response_count = len(response_data)
+
+        if response_count == 2000:
+            bbox_children = split_bbox(current_bbox)
+            bbox_list.pop(0)
+            for bbox_child in bbox_children:
+                bbox_list.append(bbox_child)
+        else:
+            images += response_data
+            bbox_list.pop(0)
+
+    for image in tqdm(images):
         if image['id'] not in existing_images:
             image_id = image.get('id')
             seq = image.get('sequence')
@@ -149,7 +199,7 @@ def add_images(bbox, start_date, end_date, export_path):
             cur.close()
             conn.close()
 
-    print(f'Successfully imported {n_images} records into the database.')
+    print(f'Successfully imported {len(images)} records into the database.')
 
 
 if __name__ == '__main__':
