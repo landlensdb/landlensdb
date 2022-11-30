@@ -87,6 +87,30 @@ class MapillaryImage:
         df = read_postgis(sql, con, "geometry")
         return df
 
+    @staticmethod
+    def download_gcp_image(image_path, file_name):
+        """
+        Downloads image by image id.
+
+        Parameters
+        ----------
+        image_path: str
+            path to image on GCP bucket. Must include bucket in path and be in the form:
+            'bucket_name/path/to/image.jpg'
+        file_name: str
+            path to save downloaded image.
+
+        Returns
+        -------
+            void
+        """
+        bucket_name = image_path.split("/")[0]
+        rel_path = "/".join(image_path.split("/")[1:])
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(f"{rel_path}")
+        blob.download_to_filename(file_name)
+
 
 class MapillaryImport:
     """
@@ -122,7 +146,7 @@ class MapillaryImport:
     @staticmethod
     def _split_bbox(inner_bbox):
         """
-        splits bounding box into quadrants
+        Splits bounding box into quadrants. Follows the form:
 
         | q1 | q2 |
         | -- | -- |
