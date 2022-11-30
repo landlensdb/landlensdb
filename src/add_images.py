@@ -4,6 +4,7 @@ import json
 import os
 import psycopg2
 import requests
+import time
 
 from google.cloud import storage
 from tqdm import tqdm
@@ -122,6 +123,7 @@ def add_images(initial_bbox, start_date, end_date, export_path):
     images = []
 
     # use a double ended queue (deque) and add to queue when necessary and remove when either box too large or complete
+    print("Fetching data from Mapillary ...")
     while len(bbox_list) > 0:
         current_bbox = bbox_list[0]
         bbox_string = ",".join(str(i) for i in current_bbox)
@@ -132,10 +134,7 @@ def add_images(initial_bbox, start_date, end_date, export_path):
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
             raise Exception(
-                "There was an error connecting to the Mapillary API. "
-                "Requested area/time frame may be too large. "
-                "Please check that your token is correct "
-                "and that your internet connection is stable.")
+                f"There was an error connecting to the Mapillary API. Exception: {response.text}")
 
         response_data = response.json().get('data')
         response_count = len(response_data)
@@ -148,9 +147,13 @@ def add_images(initial_bbox, start_date, end_date, export_path):
         else:
             images += response_data
             bbox_list.pop(0)
+    # todo: this should print the number of images that will be imported.
+    print(f'fetched a total of {len(images)} images')
 
+    print("Beginning import")
+    # todo: loop through images that are not in existing images
     for image in tqdm(images):
-        if image['id'] not in existing_images:
+        if int(image['id']) not in existing_images:
             image_id = image.get('id')
             seq = image.get('sequence')
             altitude = image.get('altitude')
@@ -235,4 +238,6 @@ if __name__ == '__main__':
     end = args.end
     image_dir = args.image_directory
 
+    start_time = time.time()
     add_images(bbox, start, end, image_dir)
+    print("--- %s seconds ---" % (time.time() - start_time))
