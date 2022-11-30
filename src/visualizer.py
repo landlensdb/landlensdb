@@ -25,7 +25,7 @@ class Visualize:
             <tr>
             <td style="background-color: """
             + left_col_color
-            + """;"><span style="color: #ffffff;">Image </span></td>
+            + """;"><span style="color: #ffffff; padding-left: 5px;">Image </span></td>
             <td style="width: 200px; padding-left: 5px; background-color: """
             + right_col_color
             + """;">{}</td>""".format(image)
@@ -34,7 +34,7 @@ class Visualize:
             <tr>
             <td style="background-color: """
             + left_col_color
-            + """;"><span style="color: #ffffff;">Sequence </span></td>
+            + """;"><span style="color: #ffffff; padding-left: 5px;">Sequence </span></td>
             <td style="width: 200px; padding-left: 5px; background-color: """
             + right_col_color
             + """;">{}</td>""".format(seq)
@@ -43,7 +43,7 @@ class Visualize:
             <tr>
             <td style="background-color: """
             + left_col_color
-            + """;"><span style="color: #ffffff;">Camera </span></td>
+            + """;"><span style="color: #ffffff; padding-left: 5px;">Camera </span></td>
             <td style="width: 200px; padding-left: 5px; background-color: """
             + right_col_color
             + """;">{}</td>""".format(cam)

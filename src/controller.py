@@ -25,7 +25,7 @@ class MapillaryImage:
 
     def select_within_bbox(self, bbox):
         """
-        Selects rows that lie completely within the supplied bounding box. Note, this function uses ST_CONTAINS.
+        Selects rows that lie completely within the supplied bounding box.
 
         Parameters
         ----------
@@ -38,13 +38,53 @@ class MapillaryImage:
         GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box
         """
         minx, miny, maxx, maxy = bbox
-        print("Reading from table. This could take a while ...")
         con = create_engine(self.DATABASE_URL)
         sql = f"""
             SELECT * FROM mly_images WHERE geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
             """
         df = read_postgis(sql, con, "geometry")
-        print("done")
+        return df
+
+    def select_by_image_id(self, image_id):
+        """
+        Selects row where id equals the supplied image id.
+
+        Parameters
+        ----------
+        image_id : int
+          image id to query
+
+        Returns
+        -------
+        GeoDataFrame: Geopandas dataframe
+        """
+
+        con = create_engine(self.DATABASE_URL)
+        sql = f"""
+            SELECT * FROM mly_images WHERE id = {image_id};
+            """
+        df = read_postgis(sql, con, "geometry")
+        return df
+
+    def select_by_sequence_id(self, sequence_id):
+        """
+        Selects rows where seq equals the supplied sequence id.
+
+        Parameters
+        ----------
+        sequence_id : string
+          sequence id to query
+
+        Returns
+        -------
+        GeoDataFrame: Geopandas dataframe
+        """
+
+        con = create_engine(self.DATABASE_URL)
+        sql = f"""
+            SELECT * FROM mly_images WHERE seq = '{sequence_id}';
+            """
+        df = read_postgis(sql, con, "geometry")
         return df
 
 
