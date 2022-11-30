@@ -10,7 +10,9 @@ class InitializeMapillary:
     """
 
     def __init__(self):
-        self.DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/mapillary')
+        self.DATABASE_URL = os.environ.get(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mapillary"
+        )
 
     def create_image_table(self):
         """
@@ -24,7 +26,7 @@ class InitializeMapillary:
 
         conn.autocommit = True
         cur.execute(
-            '''
+            """
                CREATE TABLE IF NOT EXISTS 
                mly_images (
                    id  bigint NOT NULL,
@@ -48,7 +50,7 @@ class InitializeMapillary:
                );
                CREATE INDEX idx_computed_geom ON mly_images USING gist (geometry);
                CREATE INDEX idx_geom ON mly_images USING gist (computed_geometry);
-            '''
+            """
         )
         cur.close()
         conn.close()

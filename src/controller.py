@@ -17,8 +17,11 @@ class MapillaryImage:
 
     Contains functions to read from the database and output in various formats.
     """
+
     def __init__(self):
-        self.DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/mapillary')
+        self.DATABASE_URL = os.environ.get(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mapillary"
+        )
 
     def select_within_bbox(self, bbox):
         """
@@ -35,13 +38,13 @@ class MapillaryImage:
         GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box
         """
         minx, miny, maxx, maxy = bbox
-        print('Reading from table. This could take a while ...')
+        print("Reading from table. This could take a while ...")
         con = create_engine(self.DATABASE_URL)
         sql = f"""
             SELECT * FROM mly_images WHERE geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
             """
         df = read_postgis(sql, con, "geometry")
-        print('done')
+        print("done")
         return df
 
 
@@ -51,10 +54,13 @@ class MapillaryImport:
 
     Contains functions to import data from mapillary servers to self-managed storage blobs and databases.
     """
+
     def __init__(self):
-        self.DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/mapillary')
-        self.TOKEN = os.environ.get('MAPILLARY_TOKEN', '')
-        self.BUCKET_NAME = os.environ.get('BUCKET_NAME', '')
+        self.DATABASE_URL = os.environ.get(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mapillary"
+        )
+        self.TOKEN = os.environ.get("MAPILLARY_TOKEN", "")
+        self.BUCKET_NAME = os.environ.get("BUCKET_NAME", "")
 
     def _get_image_ids(self):
         """
@@ -127,36 +133,46 @@ class MapillaryImport:
         existing_images = self._get_image_ids()
 
         fields_list = [
-            'id',
-            'sequence',
-            'altitude',
-            'computed_altitude',
-            'camera_type',
-            'camera_parameters',
-            'captured_at',
-            'compass_angle',
-            'computed_compass_angle',
-            'exif_orientation',
-            'merge_cc',
-            'mesh',
-            'sfm_cluster',
-            'detections',
-            'thumb_1024_url',
-            'computed_geometry',
-            'geometry'
+            "id",
+            "sequence",
+            "altitude",
+            "computed_altitude",
+            "camera_type",
+            "camera_parameters",
+            "captured_at",
+            "compass_angle",
+            "computed_compass_angle",
+            "exif_orientation",
+            "merge_cc",
+            "mesh",
+            "sfm_cluster",
+            "detections",
+            "thumb_1024_url",
+            "computed_geometry",
+            "geometry",
         ]
-        fields = ','.join(fields_list)
+        fields = ",".join(fields_list)
 
         # todo: check that time zones dont matter. Because we arent concerned with times,
         #  it probably is never necessary to look at timezones.
         # tz = pytz.timezone('Asia/Tokyo')
         tz = datetime.timezone.utc
-        start_timestamp = datetime.datetime.strptime(start_date, '%Y-%m-%d').astimezone(tz).replace(
-            microsecond=0).isoformat().replace('+00:00', 'Z')
-        end_timestamp = datetime.datetime.strptime(end_date, '%Y-%m-%d').astimezone(tz).replace(
-            microsecond=0).isoformat().replace('+00:00', 'Z')
+        start_timestamp = (
+            datetime.datetime.strptime(start_date, "%Y-%m-%d")
+            .astimezone(tz)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        end_timestamp = (
+            datetime.datetime.strptime(end_date, "%Y-%m-%d")
+            .astimezone(tz)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
-        base_url = 'https://graph.mapillary.com/images'
+        base_url = "https://graph.mapillary.com/images"
 
         bbox_list = list([initial_bbox])
         images = []
@@ -166,16 +182,19 @@ class MapillaryImport:
         while len(bbox_list) > 0:
             current_bbox = bbox_list[0]
             bbox_string = ",".join(str(i) for i in current_bbox)
-            url = f'{base_url}?access_token={self.TOKEN}&start_captured_at={start_timestamp}' \
-                  f'&end_captured_at={end_timestamp}&fields={fields}&bbox={bbox_string}' \
-                  f'&limit=2000'
+            url = (
+                f"{base_url}?access_token={self.TOKEN}&start_captured_at={start_timestamp}"
+                f"&end_captured_at={end_timestamp}&fields={fields}&bbox={bbox_string}"
+                f"&limit=2000"
+            )
 
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
                 raise Exception(
-                    f"There was an error connecting to the Mapillary API. Exception: {response.text}")
+                    f"There was an error connecting to the Mapillary API. Exception: {response.text}"
+                )
 
-            response_data = response.json().get('data')
+            response_data = response.json().get("data")
             response_count = len(response_data)
 
             if response_count == 2000:
@@ -187,38 +206,56 @@ class MapillaryImport:
                 images += response_data
                 bbox_list.pop(0)
         # todo: this should print the number of images that will be imported.
-        print(f'fetched a total of {len(images)} images')
+        print(f"fetched a total of {len(images)} images")
 
         print("Beginning import")
         # todo: loop through images that are not in existing images
         for image in tqdm(images):
-            if int(image['id']) not in existing_images:
-                image_id = image.get('id')
-                seq = image.get('sequence')
-                altitude = image.get('altitude')
-                computed_altitude = image.get('computed_altitude')
-                camera_type = image.get('camera_type')
-                camera_parameters = json.dumps(image.get('camera_parameters')) if image.get(
-                    'camera_parameters') else None
-                captured_at = datetime.datetime.fromtimestamp(image.get('captured_at') / 1000, datetime.timezone.utc)
-                compass_angle = image.get('compass_angle')
-                computed_compass_angle = image.get('computed_compass_angle')
-                exif_orientation = image.get('exif_orientation')
-                merge_cc = int(image.get('merge_cc'))
-                mesh = json.dumps(image.get('mesh')) if image.get('mesh') else None
-                sfm_cluster = json.dumps(image.get('sfm_cluster')) if image.get('sfm_cluster') else None
-                detections = json.dumps(image.get('detections')) if image.get('detections') else None
-                computed_geometry = "SRID=4326;" + Point(image.get('computed_geometry').get('coordinates')).wkt
-                geometry = "SRID=4326;" + Point(image.get('geometry').get('coordinates')).wkt
+            if int(image["id"]) not in existing_images:
+                image_id = image.get("id")
+                seq = image.get("sequence")
+                altitude = image.get("altitude")
+                computed_altitude = image.get("computed_altitude")
+                camera_type = image.get("camera_type")
+                camera_parameters = (
+                    json.dumps(image.get("camera_parameters"))
+                    if image.get("camera_parameters")
+                    else None
+                )
+                captured_at = datetime.datetime.fromtimestamp(
+                    image.get("captured_at") / 1000, datetime.timezone.utc
+                )
+                compass_angle = image.get("compass_angle")
+                computed_compass_angle = image.get("computed_compass_angle")
+                exif_orientation = image.get("exif_orientation")
+                merge_cc = int(image.get("merge_cc"))
+                mesh = json.dumps(image.get("mesh")) if image.get("mesh") else None
+                sfm_cluster = (
+                    json.dumps(image.get("sfm_cluster"))
+                    if image.get("sfm_cluster")
+                    else None
+                )
+                detections = (
+                    json.dumps(image.get("detections"))
+                    if image.get("detections")
+                    else None
+                )
+                computed_geometry = (
+                    "SRID=4326;"
+                    + Point(image.get("computed_geometry").get("coordinates")).wkt
+                )
+                geometry = (
+                    "SRID=4326;" + Point(image.get("geometry").get("coordinates")).wkt
+                )
 
-                image_data = requests.get(image['thumb_1024_url'], stream=True).content
-                image_path = '{}/{}/image_{}.jpg'.format(export_path, seq, image_id)
+                image_data = requests.get(image["thumb_1024_url"], stream=True).content
+                image_path = "{}/{}/image_{}.jpg".format(export_path, seq, image_id)
 
                 storage_client = storage.Client()
                 bucket = storage_client.bucket(self.BUCKET_NAME)
                 blob = bucket.blob(image_path)
                 blob.upload_from_string(image_data)
-                image_url = f'https://storage.cloud.google.com/sudb_images/{image_path}'
+                image_url = f"https://storage.cloud.google.com/sudb_images/{image_path}"
 
                 conn = psycopg2.connect(self.DATABASE_URL)
                 cur = conn.cursor()
@@ -234,12 +271,27 @@ class MapillaryImport:
                         image_url, computed_geometry, geometry) VALUES
                       (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
                     """,
-                    [image_id, seq, altitude, computed_altitude, camera_parameters, camera_type,
-                     captured_at, compass_angle, computed_compass_angle, exif_orientation,
-                     merge_cc, mesh, sfm_cluster, detections,
-                     image_url, computed_geometry, geometry]
+                    [
+                        image_id,
+                        seq,
+                        altitude,
+                        computed_altitude,
+                        camera_parameters,
+                        camera_type,
+                        captured_at,
+                        compass_angle,
+                        computed_compass_angle,
+                        exif_orientation,
+                        merge_cc,
+                        mesh,
+                        sfm_cluster,
+                        detections,
+                        image_url,
+                        computed_geometry,
+                        geometry,
+                    ],
                 )
                 cur.close()
                 conn.close()
 
-        print(f'Successfully imported {len(images)} records into the database.')
+        print(f"Successfully imported {len(images)} records into the database.")
