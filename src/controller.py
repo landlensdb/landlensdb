@@ -34,11 +34,11 @@ class MapillaryImage:
         -------
         GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box
         """
-        bbox_string = ",".join(str(i) for i in bbox)
+        minx, miny, maxx, maxy = bbox
         print('Reading from table. This could take a while ...')
         con = create_engine(self.DATABASE_URL)
         sql = f"""
-            SELECT * FROM mly_images WHERE geometry &&  ST_MakeEnvelope({bbox_string}, 4326);
+            SELECT * FROM mly_images WHERE geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
             """
         df = read_postgis(sql, con, "geometry")
         print('done')
