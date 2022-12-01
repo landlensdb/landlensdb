@@ -45,6 +45,43 @@ class MapillaryImage:
         df = read_postgis(sql, con, "geometry")
         return df
 
+    def select_within_bbox_dates(self, bbox, start_date, end_date):
+        """
+        Selects rows that lie completely within the supplied bounding box and starting and ending dates.
+
+        Parameters
+        ----------
+        bbox : list
+          list of lat long coordinates. Specify in this order: left, bottom, right, top
+          (or minLon, minLat, maxLon, maxLat).
+        start_date: str
+          starting date for filter. Must be in form: `YYYY-MM-DD`
+        end_date: str
+          ending date for filter. Must be in form: `YYYY-MM-DD`
+
+        Returns
+        -------
+        GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box and dates
+        """
+        minx, miny, maxx, maxy = bbox
+        end_date = (
+            datetime.datetime.strptime(end_date, "%Y-%m-%d")
+            + datetime.timedelta(days=1)
+        ).strftime("%Y-%m-%d")
+        con = create_engine(self.DATABASE_URL)
+        sql = f"""
+            SELECT * 
+            FROM mly_images 
+            WHERE
+            captured_at >= '{start_date}'
+            AND
+            captured_at < '{end_date}'
+            AND
+            geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
+            """
+        df = read_postgis(sql, con, "geometry")
+        return df
+
     def select_by_image_id(self, image_id):
         """
         Selects row where id equals the supplied image id.
@@ -86,30 +123,6 @@ class MapillaryImage:
             """
         df = read_postgis(sql, con, "geometry")
         return df
-
-    @staticmethod
-    def download_gcp_image(image_path, file_name):
-        """
-        Downloads image by image id.
-
-        Parameters
-        ----------
-        image_path: str
-            path to image on GCP bucket. Must include bucket in path and be in the form:
-            'bucket_name/path/to/image.jpg'
-        file_name: str
-            path to save downloaded image.
-
-        Returns
-        -------
-            void
-        """
-        bucket_name = image_path.split("/")[0]
-        rel_path = "/".join(image_path.split("/")[1:])
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-        blob = bucket.blob(f"{rel_path}")
-        blob.download_to_filename(file_name)
 
 
 class MapillaryImport:
