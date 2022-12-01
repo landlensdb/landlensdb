@@ -25,7 +25,7 @@ class DataUtils:
         """
 
         image_paths = self._image_paths()
-        image_urls = ["gcp://" + image_path for image_path in image_paths]
+        image_urls = ["gs://" + image_path for image_path in image_paths]
         with open(file_name, "w") as f:
             for image_url in image_urls:
                 f.write(f"{image_url}\n")
