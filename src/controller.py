@@ -186,6 +186,96 @@ class MapillaryImport:
 
         return [q1, q2, q3, q4]
 
+    def _import_image(self, image, export_path):
+        """
+        Imports mapillary image data into the database and GCP bucket. This function parses the response and does
+        the import.
+
+        Parameters
+        ----------
+        image: dict
+            image dict from mapillary response.
+        export_path: character
+            path to save downloaded images on GCP storage bucket.
+        Returns
+        -------
+        void
+        """
+        image_id = image.get("id")
+        seq = image.get("sequence")
+        altitude = image.get("altitude")
+        computed_altitude = image.get("computed_altitude")
+        camera_type = image.get("camera_type")
+        camera_parameters = (
+            json.dumps(image.get("camera_parameters"))
+            if image.get("camera_parameters")
+            else None
+        )
+        captured_at = datetime.datetime.fromtimestamp(
+            image.get("captured_at") / 1000, datetime.timezone.utc
+        )
+        compass_angle = image.get("compass_angle")
+        computed_compass_angle = image.get("computed_compass_angle")
+        exif_orientation = image.get("exif_orientation")
+        merge_cc = int(image.get("merge_cc"))
+        mesh = json.dumps(image.get("mesh")) if image.get("mesh") else None
+        sfm_cluster = (
+            json.dumps(image.get("sfm_cluster")) if image.get("sfm_cluster") else None
+        )
+        detections = (
+            json.dumps(image.get("detections")) if image.get("detections") else None
+        )
+        computed_geometry = (
+            "SRID=4326;" + Point(image.get("computed_geometry").get("coordinates")).wkt
+        )
+        geometry = "SRID=4326;" + Point(image.get("geometry").get("coordinates")).wkt
+
+        image_data = requests.get(image["thumb_1024_url"], stream=True).content
+        image_path = "{}/{}/image_{}.jpg".format(export_path, seq, image_id)
+
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(self.BUCKET_NAME)
+        blob = bucket.blob(image_path)
+        blob.upload_from_string(image_data)
+        image_url = f"https://storage.cloud.google.com/sudb_images/{image_path}"
+
+        conn = psycopg2.connect(self.DATABASE_URL)
+        cur = conn.cursor()
+
+        conn.autocommit = True
+        cur.execute(
+            """
+            INSERT INTO mly_images (
+                id, seq, altitude, computed_altitude,
+                camera_parameters, camera_type, captured_at, compass_angle,
+                computed_compass_angle, exif_orientation,
+                merge_cc, mesh, sfm_cluster, detections,
+                image_url, computed_geometry, geometry) VALUES
+              (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+            """,
+            [
+                image_id,
+                seq,
+                altitude,
+                computed_altitude,
+                camera_parameters,
+                camera_type,
+                captured_at,
+                compass_angle,
+                computed_compass_angle,
+                exif_orientation,
+                merge_cc,
+                mesh,
+                sfm_cluster,
+                detections,
+                image_url,
+                computed_geometry,
+                geometry,
+            ],
+        )
+        cur.close()
+        conn.close()
+
     def import_images_by_bbox(self, initial_bbox, start_date, end_date, export_path):
         """
         Inserts new image records to the database and saves a copy of the image one sequence at a time.
@@ -289,86 +379,54 @@ class MapillaryImport:
         # todo: loop through images that are not in existing images
         for image in tqdm(images):
             if int(image["id"]) not in existing_images:
-                image_id = image.get("id")
-                seq = image.get("sequence")
-                altitude = image.get("altitude")
-                computed_altitude = image.get("computed_altitude")
-                camera_type = image.get("camera_type")
-                camera_parameters = (
-                    json.dumps(image.get("camera_parameters"))
-                    if image.get("camera_parameters")
-                    else None
-                )
-                captured_at = datetime.datetime.fromtimestamp(
-                    image.get("captured_at") / 1000, datetime.timezone.utc
-                )
-                compass_angle = image.get("compass_angle")
-                computed_compass_angle = image.get("computed_compass_angle")
-                exif_orientation = image.get("exif_orientation")
-                merge_cc = int(image.get("merge_cc"))
-                mesh = json.dumps(image.get("mesh")) if image.get("mesh") else None
-                sfm_cluster = (
-                    json.dumps(image.get("sfm_cluster"))
-                    if image.get("sfm_cluster")
-                    else None
-                )
-                detections = (
-                    json.dumps(image.get("detections"))
-                    if image.get("detections")
-                    else None
-                )
-                computed_geometry = (
-                    "SRID=4326;"
-                    + Point(image.get("computed_geometry").get("coordinates")).wkt
-                )
-                geometry = (
-                    "SRID=4326;" + Point(image.get("geometry").get("coordinates")).wkt
-                )
-
-                image_data = requests.get(image["thumb_1024_url"], stream=True).content
-                image_path = "{}/{}/image_{}.jpg".format(export_path, seq, image_id)
-
-                storage_client = storage.Client()
-                bucket = storage_client.bucket(self.BUCKET_NAME)
-                blob = bucket.blob(image_path)
-                blob.upload_from_string(image_data)
-                image_url = f"https://storage.cloud.google.com/sudb_images/{image_path}"
-
-                conn = psycopg2.connect(self.DATABASE_URL)
-                cur = conn.cursor()
-
-                conn.autocommit = True
-                cur.execute(
-                    """
-                    INSERT INTO mly_images (
-                        id, seq, altitude, computed_altitude,
-                        camera_parameters, camera_type, captured_at, compass_angle,
-                        computed_compass_angle, exif_orientation,
-                        merge_cc, mesh, sfm_cluster, detections,
-                        image_url, computed_geometry, geometry) VALUES
-                      (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
-                    """,
-                    [
-                        image_id,
-                        seq,
-                        altitude,
-                        computed_altitude,
-                        camera_parameters,
-                        camera_type,
-                        captured_at,
-                        compass_angle,
-                        computed_compass_angle,
-                        exif_orientation,
-                        merge_cc,
-                        mesh,
-                        sfm_cluster,
-                        detections,
-                        image_url,
-                        computed_geometry,
-                        geometry,
-                    ],
-                )
-                cur.close()
-                conn.close()
+                self._import_image(image, export_path)
 
         print(f"Successfully imported {len(images)} records into the database.")
+
+    def import_image_by_id(self, image_id, export_path):
+        """
+        Inserts new image record to the database and saves a copy of the image.
+
+        Parameters
+        ----------
+        image_id: int
+          mapillary image id
+        export_path: Character
+          path to save downloaded images on GCP storage bucket.
+
+        Returns
+        -------
+        void
+        """
+        headers = {"Authorization": "OAuth {}".format(self.TOKEN)}
+
+        fields_list = [
+            "id",
+            "sequence",
+            "altitude",
+            "computed_altitude",
+            "camera_type",
+            "camera_parameters",
+            "captured_at",
+            "compass_angle",
+            "computed_compass_angle",
+            "exif_orientation",
+            "merge_cc",
+            "mesh",
+            "sfm_cluster",
+            "detections",
+            "thumb_1024_url",
+            "computed_geometry",
+            "geometry",
+        ]
+        fields = ",".join(fields_list)
+        url = f"https://graph.mapillary.com/{image_id}?fields={fields}"
+
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise Exception(
+                f"There was an error connecting to the Mapillary API. Exception: {response.text}"
+            )
+
+        image = response.json()
+        self._import_image(image, export_path)
