@@ -4,8 +4,9 @@ import os
 import psycopg2
 import requests
 
-from geopandas import read_postgis
+from geopandas import read_postgis, GeoSeries
 from google.cloud import storage
+from psycopg2.extras import execute_values
 from shapely.geometry import Point
 from sqlalchemy import create_engine
 from tqdm import tqdm
@@ -23,7 +24,7 @@ class MapillaryImage:
             "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mapillary"
         )
 
-    def select_within_bbox(self, bbox):
+    def select_within_bbox(self, bbox, include_snapped=False):
         """
         Selects rows that lie completely within the supplied bounding box.
 
@@ -39,13 +40,70 @@ class MapillaryImage:
         """
         minx, miny, maxx, maxy = bbox
         con = create_engine(self.DATABASE_URL)
-        sql = f"""
-            SELECT * FROM mly_images WHERE geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
-            """
+
+        if include_snapped:
+            sql = f"""
+                SELECT 
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    mly_snapped_geom.use_osm,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry,
+                    ST_AsText(mly_snapped_geom.geometry) as snapped_geometry
+                FROM mly_images
+                LEFT JOIN mly_snapped_geom
+                    ON mly_images.id = mly_snapped_geom.image_id
+                WHERE
+                    mly_images.geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
+                """
+        else:
+            sql = f"""
+                SELECT
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry
+                FROM mly_images
+                WHERE
+                    geometry &&  ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
+                """
         df = read_postgis(sql, con, "geometry")
+        df["computed_geometry"] = GeoSeries.from_wkt(df["computed_geometry"], crs=4326)
+        if include_snapped:
+            df["snapped_geometry"] = GeoSeries.from_wkt(
+                df["snapped_geometry"], crs=4326
+            )
         return df
 
-    def select_within_bbox_dates(self, bbox, start_date, end_date):
+    def select_within_bbox_dates(
+        self, bbox, start_date, end_date, include_snapped=False
+    ):
         """
         Selects rows that lie completely within the supplied bounding box and starting and ending dates.
 
@@ -69,20 +127,76 @@ class MapillaryImage:
             + datetime.timedelta(days=1)
         ).strftime("%Y-%m-%d")
         con = create_engine(self.DATABASE_URL)
-        sql = f"""
-            SELECT * 
-            FROM mly_images 
-            WHERE
-            captured_at >= '{start_date}'
-            AND
-            captured_at < '{end_date}'
-            AND
-            geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
-            """
+
+        if include_snapped:
+            sql = f"""
+                SELECT 
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    mly_snapped_geom.use_osm,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry,
+                    ST_AsText(mly_snapped_geom.geometry) as snapped_geometry
+                FROM mly_images
+                LEFT JOIN mly_snapped_geom
+                    ON mly_images.id = mly_snapped_geom.image_id
+                WHERE
+                    captured_at >= '{start_date}'
+                AND
+                    captured_at < '{end_date}'
+                AND
+                    mly_images.geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
+                """
+        else:
+            sql = f"""
+                SELECT
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry
+                FROM mly_images
+                WHERE
+                    captured_at >= '{start_date}'
+                AND
+                    captured_at < '{end_date}'
+                AND
+                    geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326);
+                """
         df = read_postgis(sql, con, "geometry")
+        df["computed_geometry"] = GeoSeries.from_wkt(df["computed_geometry"], crs=4326)
+        if include_snapped:
+            df["snapped_geometry"] = GeoSeries.from_wkt(
+                df["snapped_geometry"], crs=4326
+            )
         return df
 
-    def select_by_image_id(self, image_id):
+    def select_by_image_id(self, image_id, include_snapped=False):
         """
         Selects row where id equals the supplied image id.
 
@@ -97,13 +211,65 @@ class MapillaryImage:
         """
 
         con = create_engine(self.DATABASE_URL)
-        sql = f"""
-            SELECT * FROM mly_images WHERE id = {image_id};
-            """
+        if include_snapped:
+            sql = f"""
+                SELECT 
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    mly_snapped_geom.use_osm,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry,
+                    ST_AsText(mly_snapped_geom.geometry) as snapped_geometry
+                FROM mly_images
+                LEFT JOIN mly_snapped_geom
+                    ON mly_images.id = mly_snapped_geom.image_id
+                WHERE mly_images.id = {image_id};
+                """
+        else:
+            sql = f"""
+                SELECT
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry
+                FROM mly_images
+                WHERE id = {image_id};
+                """
         df = read_postgis(sql, con, "geometry")
+        df["computed_geometry"] = GeoSeries.from_wkt(df["computed_geometry"], crs=4326)
+        if include_snapped:
+            df["snapped_geometry"] = GeoSeries.from_wkt(
+                df["snapped_geometry"], crs=4326
+            )
         return df
 
-    def select_by_sequence_id(self, sequence_id):
+    def select_by_sequence_id(self, sequence_id, include_snapped=False):
         """
         Selects rows where seq equals the supplied sequence id.
 
@@ -118,10 +284,130 @@ class MapillaryImage:
         """
 
         con = create_engine(self.DATABASE_URL)
-        sql = f"""
-            SELECT * FROM mly_images WHERE seq = '{sequence_id}';
-            """
+        if include_snapped:
+            sql = f"""
+                SELECT 
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    mly_snapped_geom.use_osm,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry,
+                    ST_AsText(mly_snapped_geom.geometry) as snapped_geometry
+                FROM mly_images
+                LEFT JOIN mly_snapped_geom
+                    ON mly_images.id = mly_snapped_geom.image_id
+                WHERE seq = '{sequence_id}';
+                """
+        else:
+            sql = f"""
+                SELECT
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry
+                FROM mly_images WHERE seq = '{sequence_id}';
+                """
         df = read_postgis(sql, con, "geometry")
+        df["computed_geometry"] = GeoSeries.from_wkt(df["computed_geometry"], crs=4326)
+        if include_snapped:
+            df["snapped_geometry"] = GeoSeries.from_wkt(
+                df["snapped_geometry"], crs=4326
+            )
+        return df
+
+    def select_all(self, include_snapped=False):
+        """
+        Selects rows where seq equals the supplied sequence id.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        GeoDataFrame: Geopandas dataframe
+        """
+
+        con = create_engine(self.DATABASE_URL)
+        if include_snapped:
+            sql = f"""
+                SELECT 
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    mly_snapped_geom.use_osm,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry,
+                    ST_AsText(mly_snapped_geom.geometry) as snapped_geometry
+                FROM mly_images
+                LEFT JOIN mly_snapped_geom
+                    ON mly_images.id = mly_snapped_geom.image_id;
+                """
+        else:
+            sql = f"""
+                SELECT
+                    mly_images.id,
+                    mly_images.seq,
+                    mly_images.altitude,
+                    mly_images.computed_altitude,
+                    mly_images.camera_parameters,
+                    mly_images.camera_type,
+                    mly_images.captured_at,
+                    mly_images.compass_angle,
+                    mly_images.computed_compass_angle,
+                    mly_images.exif_orientation,
+                    mly_images.merge_cc,
+                    mly_images.mesh,
+                    mly_images.sfm_cluster,
+                    mly_images.detections,
+                    mly_images.image_url,
+                    ST_AsText(mly_images.computed_geometry) as computed_geometry,
+                    mly_images.geometry
+                FROM mly_images;
+                """
+        df = read_postgis(sql, con, "geometry")
+        df["computed_geometry"] = GeoSeries.from_wkt(df["computed_geometry"], crs=4326)
+        if include_snapped:
+            df["snapped_geometry"] = GeoSeries.from_wkt(
+                df["snapped_geometry"], crs=4326
+            )
         return df
 
 
@@ -430,3 +716,35 @@ class MapillaryImport:
 
         image = response.json()
         self._import_image(image, export_path)
+
+    def import_snapped_images(self, geodataframe, use_osm, update_conflicting=False):
+        conn = psycopg2.connect(self.DATABASE_URL)
+        cur = conn.cursor()
+
+        values = tuple(
+            [(row[0], use_osm, row[1].wkt) for row in geodataframe.values.tolist()]
+        )
+        conn.autocommit = True
+        if update_conflicting:
+            upsert_statement = """
+                INSERT INTO mly_snapped_geom (image_id, use_osm, geometry)
+                VALUES %s
+                ON CONFLICT ("image_id") DO UPDATE SET
+                (use_osm, geometry) = (EXCLUDED.use_osm, EXCLUDED.geometry)
+            """
+        else:
+            upsert_statement = """
+            INSERT INTO mly_snapped_geom (image_id, use_osm, geometry)
+             VALUES %s
+             ON CONFLICT ("image_id") DO NOTHING
+            """
+
+        execute_values(
+            cur,
+            upsert_statement,
+            values,
+            template="(%s, %s, ST_GeomFromText(%s, 4326))",
+        )
+
+        cur.close()
+        conn.close()

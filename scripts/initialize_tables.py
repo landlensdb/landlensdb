@@ -9,3 +9,4 @@ if __name__ == "__main__":
     )
     initializer = InitializeMapillary()
     initializer.create_image_table()
+    initializer.create_snapped_geometries_table()

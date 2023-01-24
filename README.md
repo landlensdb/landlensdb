@@ -26,3 +26,20 @@ This system aims to create ground reference data from street-level images and ve
 - Postgresql DB will be also used for sakura mapping.
 - Some functions are already developed in Windows. Migration is required.
 - The development flow should follow the [Github flow](https://docs.github.com/en/get-started/quickstart/github-flow)
+
+## Installation and Use
+
+### Installation Instructions:
+
+1. create/activate python virtual environment (e.g. `python3 -m venv venv && source venv/bin/activate`)
+2. install dependencies: `pip install -r requirements.txt`
+
+Note, to use these tools, you will need to have authenticated your device with GCP. This requires that:
+
+1. Your machine IP is registered to access the database.
+2. Your google account is authorized to access GCP resources for this project. 
+3. You have authenticated your device using `gcloud auth application-default login`
+4. You have a valid service account key with appropriate permissions.
+
+### Use:
+See `notebooks` and `scripts` for examples on how to use the various module functions.
