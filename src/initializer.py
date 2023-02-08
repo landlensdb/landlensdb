@@ -19,7 +19,7 @@ class InitializeMapillary:
         Creates mly_image table.
 
         Returns:
-        void
+          None
         """
         conn = psycopg2.connect(self.DATABASE_URL)
         cur = conn.cursor()
@@ -60,7 +60,7 @@ class InitializeMapillary:
         Creates snapped geometries that correspond with the mly_image table.
 
         Returns:
-        void
+          None
         """
         conn = psycopg2.connect(self.DATABASE_URL)
         cur = conn.cursor()

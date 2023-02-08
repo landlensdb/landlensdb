@@ -27,17 +27,19 @@ class MapillaryImage:
 
     def select_within_bbox(self, bbox, include_snapped=False):
         """
-        Selects rows that lie completely within the supplied bounding box.
+        Selects all images within a bounding box.
 
         Parameters
         ----------
-        bbox : list
-          list of lat long coordinates. Specify in this order: left, bottom, right, top
-          (or minLon, minLat, maxLon, maxLat).
+        bbox : tuple
+            A tuple of the form (minx, miny, maxx, maxy)
+        include_snapped : bool
+            If True, include the snapped geometry in the returned dataframe.
 
         Returns
         -------
-        GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box
+        df : GeoDataFrame
+            A GeoDataFrame containing the images within the bounding box.
         """
         minx, miny, maxx, maxy = bbox
         con = create_engine(self.DATABASE_URL)
@@ -106,21 +108,23 @@ class MapillaryImage:
         self, bbox, start_date, end_date, include_snapped=False
     ):
         """
-        Selects rows that lie completely within the supplied bounding box and starting and ending dates.
+        Selects images within a bounding box and date range.
 
         Parameters
         ----------
-        bbox : list
-          list of lat long coordinates. Specify in this order: left, bottom, right, top
-          (or minLon, minLat, maxLon, maxLat).
-        start_date: str
-          starting date for filter. Must be in form: `YYYY-MM-DD`
-        end_date: str
-          ending date for filter. Must be in form: `YYYY-MM-DD`
+        bbox : tuple
+            A tuple of the form (minx, miny, maxx, maxy)
+        start_date : str
+            A string in the format YYYY-MM-DD
+        end_date : str
+            A string in the format YYYY-MM-DD
+        include_snapped : bool
+            Whether to include the snapped geometry in the returned dataframe.
 
         Returns
         -------
-        GeoDataFrame: Geopandas dataframe of rows that lie within the bounding box and dates
+        df : GeoDataFrame
+            A GeoDataFrame containing the images within the bounding box and date range.
         """
         minx, miny, maxx, maxy = bbox
         end_date = (
@@ -199,16 +203,20 @@ class MapillaryImage:
 
     def select_by_image_id(self, image_id, include_snapped=False):
         """
-        Selects row where id equals the supplied image id.
+        Selects a single image by its id.
 
         Parameters
         ----------
         image_id : int
-          image id to query
+            The id of the image to select.
+        include_snapped : bool, optional
+            Whether to include the snapped geometry in the result.
+            Defaults to False.
 
         Returns
         -------
-        GeoDataFrame: Geopandas dataframe
+        df : GeoDataFrame
+            A GeoDataFrame containing the image data.
         """
 
         con = create_engine(self.DATABASE_URL)
@@ -272,16 +280,19 @@ class MapillaryImage:
 
     def select_by_sequence_id(self, sequence_id, include_snapped=False):
         """
-        Selects rows where seq equals the supplied sequence id.
+        Selects all images from a sequence.
 
         Parameters
         ----------
-        sequence_id : string
-          sequence id to query
+        sequence_id : str
+            The sequence id to select images from.
+        include_snapped : bool, optional
+            Whether to include the snapped geometry in the result.
 
         Returns
         -------
-        GeoDataFrame: Geopandas dataframe
+        df : GeoDataFrame
+            A GeoDataFrame containing the images.
         """
 
         con = create_engine(self.DATABASE_URL)
@@ -344,16 +355,19 @@ class MapillaryImage:
 
     def select_all(self, include_snapped=False):
         """
-        Selects rows where seq equals the supplied sequence id.
+        Select all images from the database.
 
         Parameters
         ----------
+        include_snapped : bool, optional
+            If True, include the snapped geometry in the returned dataframe.
+            Default is False.
 
         Returns
         -------
-        GeoDataFrame: Geopandas dataframe
+        df : GeoDataFrame
+            A GeoDataFrame containing all images in the database.
         """
-
         con = create_engine(self.DATABASE_URL)
         if include_snapped:
             sql = f"""
@@ -412,6 +426,12 @@ class MapillaryImage:
         return df
 
     def get_image_ids(self):
+        """
+        Gets a list of all Mapillary image IDs from the database.
+
+        Returns:
+            list: list of Mapillary image IDs.
+        """
         conn = psycopg2.connect(self.DATABASE_URL)
         cur = conn.cursor()
         conn.autocommit = True
@@ -421,6 +441,12 @@ class MapillaryImage:
         return image_ids
 
     def get_sequence_ids(self):
+        """
+        Gets a list of all Mapillary sequence IDs from the database.
+
+        Returns:
+            list: list of Mapillary sequence IDs.
+        """
         conn = psycopg2.connect(self.DATABASE_URL)
         cur = conn.cursor()
         conn.autocommit = True
@@ -432,12 +458,16 @@ class MapillaryImage:
 
 class MapillaryImport:
     """
-    Mapillary image import class.
+    Class to import Mapillary image data into a database and GCP storage bucket.
 
-    Contains functions to import data from mapillary servers to self-managed storage blobs and databases.
+    Contains functions for connecting to a database, fetching Mapillary image IDs,
+    splitting a bounding box into quadrants, and importing Mapillary image data.
     """
 
     def __init__(self):
+        """
+        Initializes the database URL, Mapillary token, and GCP bucket name from environment variables.
+        """
         self.DATABASE_URL = os.environ.get(
             "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mapillary"
         )
@@ -446,10 +476,10 @@ class MapillaryImport:
 
     def _get_image_ids(self):
         """
-        Gets a list of all mapillary image IDs from the database.
+        Gets a list of all Mapillary image IDs from the database.
 
         Returns:
-        list: list of mapillary image IDs.
+            list: list of Mapillary image IDs.
         """
         conn = psycopg2.connect(self.DATABASE_URL)
         cur = conn.cursor()
@@ -464,21 +494,13 @@ class MapillaryImport:
     @staticmethod
     def _split_bbox(inner_bbox):
         """
-        Splits bounding box into quadrants. Follows the form:
+        Splits a bounding box into quadrants.
 
-        | q1 | q2 |
-        | -- | -- |
-        | q3 | q4 |
-
-        Parameters
-        ----------
-        inner_bbox : list
-          list of coordinates. Specify in this order: left, bottom, right, top
-          (or minLon, minLat, maxLon, maxLat).
-
-        Returns
-        -------
-            list: list of length 4. Each element is a list of coordinates that represent a bbox.
+        Parameters:
+            inner_bbox (list): list of coordinates specifying the bounding box
+                                in the order left, bottom, right, top (minLon, minLat, maxLon, maxLat).
+        Returns:
+            list: list of length 4, each element representing a bounding box quadrant.
         """
         x1, y1, x2, y2 = inner_bbox[:]
         xm = (x2 - x1) / 2
@@ -493,18 +515,13 @@ class MapillaryImport:
 
     def _import_image(self, image, export_path):
         """
-        Imports mapillary image data into the database and GCP bucket. This function parses the response and does
-        the import.
+        Imports Mapillary image data into the database and GCP storage bucket.
 
-        Parameters
-        ----------
-        image: dict
-            image dict from mapillary response.
-        export_path: character
-            path to save downloaded images on GCP storage bucket.
-        Returns
-        -------
-        void
+        Parameters:
+            image (dict): Mapillary image data.
+            export_path (str): path to save the downloaded images in the GCP storage bucket.
+        Returns:
+            None
         """
         image_id = image.get("id")
         seq = image.get("sequence")
@@ -599,7 +616,7 @@ class MapillaryImport:
 
         Returns
         -------
-        void
+        None
         """
         headers = {"Authorization": "OAuth {}".format(self.TOKEN)}
         existing_images = self._get_image_ids()
@@ -701,7 +718,7 @@ class MapillaryImport:
 
         Returns
         -------
-        void
+        None
         """
         headers = {"Authorization": "OAuth {}".format(self.TOKEN)}
 
