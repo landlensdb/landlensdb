@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import json
 import os
 import psycopg2
@@ -409,6 +410,24 @@ class MapillaryImage:
                 df["snapped_geometry"], crs=4326
             )
         return df
+
+    def get_image_ids(self):
+        conn = psycopg2.connect(self.DATABASE_URL)
+        cur = conn.cursor()
+        conn.autocommit = True
+        cur.execute("SELECT id FROM mly_images")
+        images_id_rows = cur.fetchall()
+        image_ids = list(itertools.chain(*images_id_rows))
+        return image_ids
+
+    def get_sequence_ids(self):
+        conn = psycopg2.connect(self.DATABASE_URL)
+        cur = conn.cursor()
+        conn.autocommit = True
+        cur.execute("SELECT DISTINCT seq FROM mly_images")
+        sequence_id_rows = cur.fetchall()
+        sequence_ids = list(itertools.chain(*sequence_id_rows))
+        return sequence_ids
 
 
 class MapillaryImport:
