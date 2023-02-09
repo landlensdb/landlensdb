@@ -1,3 +1,5 @@
+import warnings
+
 import geopandas as gpd
 import numpy as np
 import os
@@ -179,6 +181,17 @@ class DataUtils:
         points["use_osm"] = use_osm
         points["geometry"] = new_pts
         points.rename(columns={"id": "image_id"}, inplace=True)
+
+        missing = points[points["geometry"].isnull()].image_id.tolist()
+        if len(missing) > 0:
+            warnings.warn(
+                f"""
+            Not all images were snapped. Non-snapped images will not be added 
+            to the snapped image table. To snap all images, try increasing the threshold 
+            or changing the road network. The following images could not be snapped 
+            to a road network: {missing}
+            """
+            )
 
         if update_db:
             importer = MapillaryImport()

@@ -758,7 +758,11 @@ class MapillaryImport:
         cur = conn.cursor()
 
         values = tuple(
-            [(row[0], use_osm, row[1].wkt) for row in geodataframe.values.tolist()]
+            [
+                (row[0], use_osm, row[1].wkt)
+                for row in geodataframe.values.tolist()
+                if row[1] is not None
+            ]
         )
         conn.autocommit = True
         if update_conflicting:
