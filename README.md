@@ -1,4 +1,4 @@
-# SU_GCPsystem
+# StreetValidator
 
 This system aims to create ground reference data from street-level images and very high-resolution (VHR) images.
 
@@ -43,3 +43,17 @@ Note, to use these tools, you will need to have authenticated your device with G
 
 ### Use:
 See `notebooks` and `scripts` for examples on how to use the various module functions.
+
+## Development
+
+### Formatting
+A pre-commit hook exists to format all code on commits. Code formatting 
+can be run at any time using the `black` command. For example, `black src` will
+format all code in the `src` module directory. `black` must be installed
+first before use. Please run `pip install black` to install the package.
+
+### Documentation
+This project uses Sphinx with the Read the Docs theme to document functions. To update the documentation, first
+install `sphinx` and `sphinx_rtd_theme` using `pip install sphinx sphinx_rtd_theme`. Then, 
+to generate html run `make html` or to generate pdf, run `make latexpdf`. If changes are made, 
+rebuild the build files by first running `make clean` and then `make html`.
