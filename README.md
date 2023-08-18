@@ -2,6 +2,12 @@
 
 This system aims to create ground reference data from street-level images and very high-resolution (VHR) images.
 
+
+[notes]
+* it shouldnt have to depend on postgres/postgis. users should be able to just load and save the images in whatever format they want.
+* the library should just give the core functions as the main goal.
+* read from a postgres table into a geodataframe.
+
 ## System descriptions
 
 - It builds on GCP.
