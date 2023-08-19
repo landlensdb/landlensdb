@@ -237,8 +237,6 @@ class GeoImageFrame(GeoDataFrame):
     ):
         if additional_properties is None:
             additional_properties = []
-        if additional_geometries is None:
-            additional_geometries = []
 
         x = self.geometry[0].xy[0][0]
         y = self.geometry[0].xy[1][0]
@@ -249,7 +247,7 @@ class GeoImageFrame(GeoDataFrame):
 
         image_urls = []
 
-        def add_markers_to_group(geo_col, group_name):
+        def add_markers_to_group(geo_col, angle_col, group_name):
             nonlocal image_urls
             marker_group = folium.FeatureGroup(name=group_name)
 
@@ -261,17 +259,19 @@ class GeoImageFrame(GeoDataFrame):
                 html = self._popup_html(i, url, additional_properties)
                 popup = folium.Popup(html=html, max_width=500, lazy=True)
 
-                compass_angle = self.compass_angle[i]
+                compass_angle = getattr(self, angle_col)[i]
                 icon = generate_arrow_icon(compass_angle)
 
-                marker = Marker(location=coordinates, popup=popup, icon=icon)
+                marker = folium.Marker(location=coordinates, popup=popup, icon=icon)
                 marker.add_to(marker_group)
 
             marker_group.add_to(map_obj)
 
-        add_markers_to_group("geometry", "Images")
-        for geom in additional_geometries:
-            add_markers_to_group(geom, geom)
+        add_markers_to_group("geometry", "compass_angle", "Images")
+        for geom_dict in additional_geometries:
+            add_markers_to_group(
+                geom_dict["geometry"], geom_dict["angle"], geom_dict["label"]
+            )
 
         folium.LayerControl().add_to(map_obj)
 
