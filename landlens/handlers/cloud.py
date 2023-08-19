@@ -130,7 +130,9 @@ class Mapillary:
             data = []
             for child_bbox in child_bboxes:
                 data.extend(
-                    self._recursive_fetch(child_bbox, start_timestamp, end_timestamp)
+                    self._recursive_fetch(
+                        child_bbox, fields, start_timestamp, end_timestamp
+                    )
                 )
             return data
         else:

@@ -3,7 +3,6 @@ import folium
 import os
 
 import requests
-from folium.map import Marker
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
