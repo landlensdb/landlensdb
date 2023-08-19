@@ -1,7 +1,7 @@
 from geoalchemy2 import WKBElement
 from geoalchemy2.shape import to_shape
 from shapely import Point
-from sqlalchemy import create_engine, MetaData, Table, bindparam, select, distinct, and_
+from sqlalchemy import create_engine, MetaData, Table, select, distinct, and_
 from sqlalchemy.dialects.postgresql import insert
 
 from landlens.geoclasses.geoimageframe import GeoImageFrame

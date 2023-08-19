@@ -1,3 +1,4 @@
+import math
 import warnings
 
 import geopandas as gpd
@@ -5,6 +6,26 @@ import numpy as np
 import osmnx as ox
 import pandas as pd
 from shapely import Point
+from rtree import index
+
+
+def create_spatial_index(network):
+    idx = index.Index()
+    for i, line in enumerate(network):
+        idx.insert(i, line.bounds)
+    return idx
+
+
+def get_nearest_segment(point, network, idx):
+    nearest_lines = list(idx.nearest(point.bounds, 1))
+    nearest = min(
+        [
+            (line, point.distance(line))
+            for line in [network.iloc[i] for i in nearest_lines]
+        ],
+        key=lambda x: x[1],
+    )[0]
+    return nearest
 
 
 def create_bbox(point, x_distance_meters, y_distance_meters):
@@ -41,7 +62,41 @@ def get_osm_lines(bbox, network_type="all_private"):
     return network
 
 
-def snap_to_road_network(gif, tolerance, network):
+def calculate_bearing(point1, point2):
+    lon1, lat1 = math.radians(point1.x), math.radians(point1.y)
+    lon2, lat2 = math.radians(point2.x), math.radians(point2.y)
+    dlon = lon2 - lon1
+    x = math.atan2(
+        math.sin(dlon) * math.cos(lat2),
+        math.cos(lat1) * math.sin(lat2)
+        - math.sin(lat1) * math.cos(lat2) * math.cos(dlon),
+    )
+    bearing = (math.degrees(x) + 360) % 360
+    return bearing
+
+
+def align_compass_with_road(points, network):
+    idx = create_spatial_index(network.geometry)
+    for row_idx, point in points.iterrows():
+        nearest_segment = get_nearest_segment(
+            point.snapped_geometry, network.geometry, idx
+        )
+        segment_coords = nearest_segment.coords[:]
+        segment_bearing = calculate_bearing(
+            Point(segment_coords[0]), Point(segment_coords[1])
+        )
+
+        difference_0 = abs(segment_bearing - point.compass_angle)
+        difference_180 = abs((segment_bearing + 180) % 360 - point.compass_angle)
+
+        if difference_0 < difference_180:
+            points.at[row_idx, "snapped_angle"] = segment_bearing
+        else:
+            points.at[row_idx, "snapped_angle"] = (segment_bearing + 180) % 360
+    return points
+
+
+def snap_to_road_network(gif, tolerance, network, realign_camera=True):
     points = gif[["image_url", "geometry"]].copy()
     points = points.to_crs(3857)
 
@@ -93,5 +148,15 @@ def snap_to_road_network(gif, tolerance, network):
         to a road network: {missing}
         """
         )
+
+    if realign_camera:
+        if "compass_angle" not in gif.columns:
+            warnings.warn(
+                f"realign_camera requires the compass_angle field. Cannot calculate snapped camera angle."
+            )
+        else:
+            if "snapped_angle" not in gif.columns:
+                gif["snapped_angle"] = np.nan
+            gif = align_compass_with_road(gif, network)
 
     return gif

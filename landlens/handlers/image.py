@@ -135,9 +135,11 @@ class ImageExifProcessor:
     def load_images(cls, directory):
         tf = TimezoneFinder()
         data = []
+        valid_image_count = 0
         for root, dirs, files in os.walk(directory):
             for file in files:
                 if file.lower().endswith((".png", ".jpg", ".jpeg")):
+                    valid_image_count += 1
                     filepath = os.path.join(root, file)
                     img = Image.open(filepath)
                     exif_data = cls.get_exif_data(img)
@@ -178,9 +180,7 @@ class ImageExifProcessor:
                                 captured_at_naive
                             ).isoformat()
                         else:
-                            captured_at = (
-                                captured_at_naive.isoformat()
-                            )  # Stays as a naive datetime
+                            captured_at = captured_at_naive.isoformat()
                     else:
                         captured_at = None
 
@@ -201,6 +201,9 @@ class ImageExifProcessor:
                             "geometry": geometry,
                         }
                     )
+        if valid_image_count == 0:
+            raise ValueError("The directory does not contain any valid images")
+
         gif = GeoImageFrame(data, geometry="geometry")
         gif.set_crs(epsg=4326, inplace=True)
         return gif
