@@ -9,7 +9,7 @@ from PIL.ExifTags import TAGS, GPSTAGS
 from shapely import Point
 from timezonefinder import TimezoneFinder
 
-from landlens.geoclasses.geoimageframe import GeoImageFrame
+from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
 
 class ImageExifProcessor:

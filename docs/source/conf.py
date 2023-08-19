@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Mapillary Tools"
+project = "landlens_db"
 copyright = "2023, Joseph Emile Honour Percival, Narumasa Tsutsumida"
 author = "Joseph Emile Honour Percival, Narumasa Tsutsumida"
 release = "0.1.0"

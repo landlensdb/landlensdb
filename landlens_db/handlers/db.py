@@ -4,7 +4,7 @@ from shapely import Point
 from sqlalchemy import create_engine, MetaData, Table, select, distinct, and_
 from sqlalchemy.dialects.postgresql import insert
 
-from landlens.geoclasses.geoimageframe import GeoImageFrame
+from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
 
 class ImageDB:
