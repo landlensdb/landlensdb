@@ -1,15 +1,25 @@
-import pytz
 import requests
+import warnings
 
 from datetime import datetime, timezone
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
-from timezonefinder import TimezoneFinder
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
 
 class Mapillary:
+    """
+    Class to interact with Mapillary's API to fetch image data.
+
+    Args:
+        mapillary_token (str): The authentication token for Mapillary.
+
+    Examples:
+        >>> mapillary = Mapillary("YOUR_TOKEN_HERE")
+        >>> images = mapillary.fetch_within_bbox([12.34, 56.78, 90.12, 34.56])
+    """
+
     BASE_URL = "https://graph.mapillary.com"
     HEADERS_TEMPLATE = {"Authorization": "OAuth {}"}
     REQUIRED_FIELDS = ["id", "geometry"]
@@ -45,11 +55,26 @@ class Mapillary:
     LIMIT = 2000
 
     def __init__(self, mapillary_token):
+        """
+        Initialize a Mapillary object.
+
+        Args:
+            mapillary_token (str): The authentication token for Mapillary.
+        """
         self.TOKEN = mapillary_token
         self.headers = self.HEADERS_TEMPLATE.copy()
         self.headers["Authorization"] = self.headers["Authorization"].format(self.TOKEN)
 
     def _validate_fields(self, fields):
+        """
+        Validates the fields for fetching data.
+
+        Args:
+            fields (list): The fields to be validated.
+
+        Raises:
+            ValueError: If the required fields are missing.
+        """
         if (
             "id" not in fields
             or "geometry" not in fields
@@ -62,6 +87,15 @@ class Mapillary:
 
     @staticmethod
     def _split_bbox(inner_bbox):
+        """
+        Splits a bounding box into four quarters.
+
+        Args:
+            inner_bbox (list): A list representing the bounding box to split.
+
+        Returns:
+            list: A list of four bounding boxes, each representing a quarter.
+        """
         x1, y1, x2, y2 = inner_bbox[:]
         xm = (x2 - x1) / 2
         ym = (y2 - y1) / 2
@@ -74,6 +108,15 @@ class Mapillary:
         return [q1, q2, q3, q4]
 
     def _json_to_gdf(self, json_data):
+        """
+        Converts JSON data from Mapillary to a GeoDataFrame.
+
+        Args:
+            json_data (dict): The JSON data from Mapillary.
+
+        Returns:
+            GeoDataFrame: A GeoDataFrame containing the image data.
+        """
         for img in json_data:
             coords = img.get("geometry", {}).get("coordinates", [None, None])
             img["geometry"] = Point(coords)
@@ -106,7 +149,38 @@ class Mapillary:
         gdf.set_geometry("geometry", inplace=True)
         return gdf
 
-    def _recursive_fetch(self, bbox, fields, start_timestamp=None, end_timestamp=None):
+    def _recursive_fetch(
+        self,
+        bbox,
+        fields,
+        start_timestamp=None,
+        end_timestamp=None,
+        current_depth=0,
+        max_recursion_depth=None,
+    ):
+        """
+        Recursively fetches images within a bounding box, considering timestamps.
+
+        Args:
+            bbox (list): The bounding box to fetch images from.
+            fields (list): The fields to include in the response.
+            start_timestamp (str, optional): The starting timestamp for filtering images.
+            end_timestamp (str, optional): The ending timestamp for filtering images.
+            current_depth (int, optional): Current depth of recursion.
+            max_recursion_depth (int, optional): Maximum depth of recursion.
+
+        Returns:
+            list: A list of image data.
+
+        Raises:
+            Exception: If the connection to Mapillary API fails.
+        """
+        if max_recursion_depth is not None and current_depth > max_recursion_depth:
+            warnings.warn(
+                "Warning: Max recursion depth reached. Consider splitting requests across smaller multiple date ranges."
+            )
+            return []
+
         url = (
             f"{self.BASE_URL}/images?access_token={self.TOKEN}"
             f"&fields={','.join(fields)}&bbox={','.join(str(i) for i in bbox)}"
@@ -131,7 +205,12 @@ class Mapillary:
             for child_bbox in child_bboxes:
                 data.extend(
                     self._recursive_fetch(
-                        child_bbox, fields, start_timestamp, end_timestamp
+                        child_bbox,
+                        fields,
+                        start_timestamp,
+                        end_timestamp,
+                        current_depth=current_depth + 1,
+                        max_recursion_depth=max_recursion_depth,
                     )
                 )
             return data
@@ -139,50 +218,81 @@ class Mapillary:
             return response_data
 
     @staticmethod
-    def _get_timestamp(date_string):
+    def _get_timestamp(date_string, end_of_day=False):
+        """
+        Converts a date string to a timestamp.
+
+        Args:
+            date_string (str): The date string to convert.
+            end_of_day (bool, optional): Whether to set the timestamp to the end of the day.
+
+        Returns:
+            str: The timestamp corresponding to the date string.
+        """
         if not date_string:
             return None
 
         tz = timezone.utc
+        dt = datetime.strptime(date_string, "%Y-%m-%d")
+        if end_of_day:
+            dt = dt.replace(hour=23, minute=59, second=59)
         timestamp = (
-            datetime.strptime(date_string, "%Y-%m-%d")
-            .astimezone(tz)
-            .replace(microsecond=0)
-            .isoformat()
-            .replace("+00:00", "Z")
+            dt.astimezone(tz).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         )
         return timestamp
 
-    @staticmethod
-    def _process_timestamp(epoch_time_ms, lat, lng):
-        if not epoch_time_ms:
-            return None
-        epoch_time = epoch_time_ms / 1000
-        dt_utc = datetime.fromtimestamp(epoch_time, tz=timezone.utc)
-        tf = TimezoneFinder()
-        tz_name = tf.timezone_at(lat=lat, lng=lng)
-        if tz_name:
-            local_tz = pytz.timezone(tz_name)
-            return dt_utc.astimezone(local_tz).isoformat()
-        else:
-            return dt_utc.isoformat()
-
     def fetch_within_bbox(
-        self, initial_bbox, start_date=None, end_date=None, fields=None
+        self,
+        initial_bbox,
+        start_date=None,
+        end_date=None,
+        fields=None,
+        max_recursion_depth=25,
     ):
+        """
+        Fetches images within a bounding box.
+
+        Args:
+            initial_bbox (list): The initial bounding box.
+            start_date (str, optional): The starting date for filtering images.
+            end_date (str, optional): The ending date for filtering images.
+            fields (list, optional): The fields to include in the response.
+            max_recursion_depth (int, optional): Maximum depth of recursion.
+
+        Returns:
+            GeoImageFrame: A GeoImageFrame containing the fetched images.
+        """
         if fields is None:
             fields = self.FIELDS_LIST
         else:
             self._validate_fields(fields)
         start_timestamp = self._get_timestamp(start_date)
-        end_timestamp = self._get_timestamp(end_date)
+        end_timestamp = self._get_timestamp(end_date, end_of_day=True)
         images = self._recursive_fetch(
-            initial_bbox, fields, start_timestamp, end_timestamp
+            initial_bbox,
+            fields,
+            start_timestamp,
+            end_timestamp,
+            max_recursion_depth=max_recursion_depth,
         )
         data = self._json_to_gdf(images)
+        data.drop_duplicates(subset="mly_id", inplace=True)
         return GeoImageFrame(data, geometry="geometry")
 
     def fetch_by_id(self, image_id, fields=None):
+        """
+        Fetches an image by its ID.
+
+        Args:
+            image_id (str): The ID of the image to fetch.
+            fields (list, optional): The fields to include in the response.
+
+        Returns:
+            GeoImageFrame: A GeoImageFrame containing the fetched image.
+
+        Raises:
+            Exception: If the connection to Mapillary API fails.
+        """
         if fields is None:
             fields = self.FIELDS_LIST
         else:
@@ -197,6 +307,19 @@ class Mapillary:
         return GeoImageFrame(data, geometry="geometry")
 
     def fetch_by_sequence(self, sequence_ids, fields=None):
+        """
+        Fetches images by their sequence IDs.
+
+        Args:
+            sequence_ids (list): The sequence IDs to fetch images from.
+            fields (list, optional): The fields to include in the response.
+
+        Returns:
+            GeoImageFrame: A GeoImageFrame containing the fetched images.
+
+        Raises:
+            Exception: If the connection to Mapillary API fails or the data count exceeds the limit.
+        """
         if fields is None:
             fields = self.FIELDS_LIST
         else:

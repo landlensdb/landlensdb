@@ -10,8 +10,20 @@ from folium.features import CustomIcon
 from sqlalchemy import DDL, MetaData, Table
 
 
-def generate_arrow_icon(compass_angle):
-    svg = generate_arrow_svg(compass_angle)
+def _generate_arrow_icon(compass_angle):
+    """Generates an arrow icon based on the specified compass angle.
+
+    Args:
+        compass_angle (float): The compass angle in degrees to which the arrow points.
+
+    Returns:
+        folium.features.CustomIcon: A Folium CustomIcon object representing the arrow.
+
+    Example:
+        icon = generate_arrow_icon(90)
+        marker = folium.Marker(location=[lat, lon], icon=icon)
+    """
+    svg = _generate_arrow_svg(compass_angle)
     encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
     data_url = f"data:image/svg+xml;base64,{encoded}"
 
@@ -19,7 +31,18 @@ def generate_arrow_icon(compass_angle):
     return icon
 
 
-def generate_arrow_svg(compass_angle):
+def _generate_arrow_svg(compass_angle):
+    """Generates an SVG string representing an arrow pointing to the specified compass angle.
+
+    Args:
+        compass_angle (float): The compass angle in degrees to which the arrow points.
+
+    Returns:
+        str: The SVG string of the arrow.
+
+    Example:
+        svg_str = generate_arrow_svg(45)
+    """
     return f"""
 <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
     <!-- Background circle (lighter blue dot) -->
@@ -39,11 +62,29 @@ def generate_arrow_svg(compass_angle):
 
 
 class GeoImageFrame(GeoDataFrame):
+    """A GeoDataFrame extension for managing geolocated images.
+
+    Attributes:
+        image_url (str): URL to the image file.
+        name (str): Name or label for the image.
+        geometry (shapely.geometry.Point): Geolocation of the image.
+
+    Example:
+        geo_frame = GeoImageFrame({'image_url': ['http://example.com/image.jpg'], 'name': ['Sample'], 'geometry': [Point(0, 0)]})
+    """
+
     def __init__(self, *args, **kwargs):
+        """Initialize the GeoImageFrame object.
+
+        Args:
+            *args: Positional arguments passed to the GeoDataFrame constructor.
+            **kwargs: Keyword arguments passed to the GeoDataFrame constructor.
+        """
         super().__init__(*args, **kwargs)
         self._verify_structure()
 
     def _verify_structure(self):
+        """Verifies the structure of the GeoImageFrame to ensure it has the required columns and datatypes."""
         required_columns = {"image_url": str, "name": str, "geometry": Point}
 
         for col, dtype in required_columns.items():
@@ -56,9 +97,20 @@ class GeoImageFrame(GeoDataFrame):
                 raise TypeError(f"Column '{col}' contains wrong data type.")
 
     def to_dict_records(self):
+        """Converts the GeoImageFrame to a dictionary representation.
+
+        Returns:
+            list: List of dictionaries representing the GeoImageFrame rows.
+        """
         return self.to_dict("records")
 
     def to_file(self, filename, **kwargs):
+        """Saves the GeoImageFrame to a file.
+
+        Args:
+            filename (str): The filename or path to save the GeoImageFrame.
+            **kwargs: Additional keyword arguments for the 'to_file' method.
+        """
         for col in self.columns:
             if col != "geometry":
                 self[col] = self[col].apply(
@@ -68,6 +120,19 @@ class GeoImageFrame(GeoDataFrame):
         super().to_file(filename, **kwargs)
 
     def to_postgis(self, name, engine, if_exists="fail", *args, **kwargs):
+        """Saves the GeoImageFrame to a PostGIS database.
+
+        Args:
+            name (str): Name of the table to create or update.
+            engine (sqlalchemy.engine.Engine): SQLAlchemy engine connected to the database.
+            if_exists (str): Behavior if the table already exists in the database. Default is "fail".
+            *args: Additional positional arguments for the 'to_postgis' method.
+            **kwargs: Additional keyword arguments for the 'to_postgis' method.
+
+        Raises:
+            ValueError: If required columns are missing or if the CRS is incorrect.
+            TypeError: If the columns contain incorrect data types.
+        """
         required_columns = ["name", "image_url", "geometry"]
         for col in required_columns:
             if col not in self.columns:
@@ -134,6 +199,16 @@ class GeoImageFrame(GeoDataFrame):
 
     @staticmethod
     def _download_image_from_url(url, dest_path):
+        """
+        Internal method to download an image from a URL.
+
+        Args:
+            url (str): The URL of the image to download.
+            dest_path (str): The destination path to save the downloaded image.
+
+        Returns:
+            str: The local path where the image was downloaded, or None if the download failed.
+        """
         try:
             response = requests.get(url, stream=True)
             response.raise_for_status()
@@ -150,7 +225,17 @@ class GeoImageFrame(GeoDataFrame):
 
     def download_images_to_local(self, dest_dir, filename_column=None):
         """
-        Download images specified in the 'image_url' column of the GeoDataFrame to a specified local directory.
+        Downloads the images specified in the 'image_url' column of the GeoDataFrame to a local directory.
+
+        Args:
+            dest_dir (str): The destination directory where the images will be downloaded.
+            filename_column (str, optional): Column to use for the filename. Defaults to the filename in the URL.
+
+        Returns:
+            GeoImageFrame: A new GeoImageFrame with the local paths to the downloaded images.
+
+        Example:
+            local_gdf = geo_image_frame.download_images_to_local('images/')
         """
         if "image_url" not in self.columns:
             raise ValueError("The GeoImageFrame must have a column named 'image_url'.")
@@ -180,6 +265,16 @@ class GeoImageFrame(GeoDataFrame):
 
     @staticmethod
     def _create_table_row(label, value):
+        """
+        Internal method to create an HTML table row.
+
+        Args:
+            label (str): The label for the row.
+            value (str): The value for the row.
+
+        Returns:
+            str: An HTML string representing the table row.
+        """
         value = value if value else "Unknown"
         return f"""
                 <tr>
@@ -195,6 +290,17 @@ class GeoImageFrame(GeoDataFrame):
                 """
 
     def _popup_html(self, row, image_url, additional_properties):
+        """
+        Internal method to create HTML for a popup on a map.
+
+        Args:
+            row (int): The index of the row for which to create the popup.
+            image_url (str): The URL or path of the image to display in the popup.
+            additional_properties (list): Additional properties to display in the popup.
+
+        Returns:
+            str: An HTML string representing the popup.
+        """
         table_rows = ""
         table_rows += self._create_table_row("Image", self.name[row])
 
@@ -234,6 +340,22 @@ class GeoImageFrame(GeoDataFrame):
         additional_properties=None,
         additional_geometries=None,
     ):
+        """Maps the GeoImageFrame using Folium.
+
+        Args:
+            tiles (str): Map tileset to use. Default is "OpenStreetMap".
+            zoom_start (int): Initial zoom level. Default is 18.
+            max_zoom (int): Maximum zoom level. Default is 19.
+            additional_properties (list, optional): Additional properties to display in the popup.
+            additional_geometries (list, optional): Additional geometries to include on the map.
+
+        Returns:
+            folium.Map: A Folium Map object displaying the GeoImageFrame.
+
+        Example:
+            m = geo_frame.map()
+            m.save('map.html')
+        """
         if additional_properties is None:
             additional_properties = []
 
@@ -259,7 +381,7 @@ class GeoImageFrame(GeoDataFrame):
                 popup = folium.Popup(html=html, max_width=500, lazy=True)
 
                 compass_angle = getattr(self, angle_col)[i]
-                icon = generate_arrow_icon(compass_angle)
+                icon = _generate_arrow_icon(compass_angle)
 
                 marker = folium.Marker(location=coordinates, popup=popup, icon=icon)
                 marker.add_to(marker_group)

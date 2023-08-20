@@ -9,14 +9,32 @@ from shapely import Point
 from rtree import index
 
 
-def create_spatial_index(network):
+def _create_spatial_index(network):
+    """Create a spatial index for the given network using Rtree.
+
+    Args:
+        network (GeoDataFrame): A GeoDataFrame containing the network lines.
+
+    Returns:
+        rtree.index.Index: A spatial index for efficient spatial querying.
+    """
     idx = index.Index()
     for i, line in enumerate(network):
         idx.insert(i, line.bounds)
     return idx
 
 
-def get_nearest_segment(point, network, idx):
+def _get_nearest_segment(point, network, idx):
+    """Find the nearest segment to a given point in a spatially indexed network.
+
+    Args:
+        point (shapely.geometry.Point): The point to find the nearest segment to.
+        network (GeoDataFrame): A GeoDataFrame containing the network lines.
+        idx (rtree.index.Index): The spatial index of the network.
+
+    Returns:
+        shapely.geometry.LineString: The nearest line segment to the point.
+    """
     nearest_lines = list(idx.nearest(point.bounds, 1))
     nearest = min(
         [
@@ -28,7 +46,42 @@ def get_nearest_segment(point, network, idx):
     return nearest
 
 
+def _calculate_bearing(point1, point2):
+    """Calculate the bearing between two points.
+
+    Args:
+        point1 (shapely.geometry.Point): Starting point.
+        point2 (shapely.geometry.Point): Ending point.
+
+    Returns:
+        float: The bearing in degrees.
+    """
+    lon1, lat1 = math.radians(point1.x), math.radians(point1.y)
+    lon2, lat2 = math.radians(point2.x), math.radians(point2.y)
+    dlon = lon2 - lon1
+    x = math.atan2(
+        math.sin(dlon) * math.cos(lat2),
+        math.cos(lat1) * math.sin(lat2)
+        - math.sin(lat1) * math.cos(lat2) * math.cos(dlon),
+    )
+    bearing = (math.degrees(x) + 360) % 360
+    return bearing
+
+
 def create_bbox(point, x_distance_meters, y_distance_meters):
+    """Create a bounding box around a point.
+
+    Args:
+        point (shapely.geometry.Point): The center point for the bounding box.
+        x_distance_meters (float): The horizontal distance in meters.
+        y_distance_meters (float): The vertical distance in meters.
+
+    Returns:
+        list: Bounding box coordinates [minx, miny, maxx, maxy] in EPSG:4326.
+
+    Raises:
+        ValueError: If the input is not a Shapely Point.
+    """
     if not isinstance(point, Point):
         raise ValueError("Input must be a Shapely Point.")
 
@@ -56,33 +109,38 @@ def create_bbox(point, x_distance_meters, y_distance_meters):
 
 
 def get_osm_lines(bbox, network_type="all_private"):
+    """Retrieve OpenStreetMap lines for a given bounding box.
+
+    Args:
+        bbox (list): Bounding box coordinates [minx, miny, maxx, maxy].
+        network_type (str, optional): The type of network to retrieve. Defaults to "all_private".
+
+    Returns:
+        GeoDataFrame: A GeoDataFrame containing the OSM lines.
+    """
     minx, miny, maxx, maxy = bbox
     graph = ox.graph_from_bbox(maxy, miny, minx, maxx, network_type=network_type)
     network = ox.utils_graph.graph_to_gdfs(graph, nodes=False)
     return network
 
 
-def calculate_bearing(point1, point2):
-    lon1, lat1 = math.radians(point1.x), math.radians(point1.y)
-    lon2, lat2 = math.radians(point2.x), math.radians(point2.y)
-    dlon = lon2 - lon1
-    x = math.atan2(
-        math.sin(dlon) * math.cos(lat2),
-        math.cos(lat1) * math.sin(lat2)
-        - math.sin(lat1) * math.cos(lat2) * math.cos(dlon),
-    )
-    bearing = (math.degrees(x) + 360) % 360
-    return bearing
-
-
 def align_compass_with_road(points, network):
-    idx = create_spatial_index(network.geometry)
+    """Aligns the compass angle of points with the bearing of the nearest road segment.
+
+    Args:
+        points (GeoDataFrame): A GeoDataFrame containing points with compass angles.
+        network (GeoDataFrame): A GeoDataFrame containing the road network.
+
+    Returns:
+        GeoDataFrame: A GeoDataFrame with updated snapped_angle field.
+    """
+    idx = _create_spatial_index(network.geometry)
     for row_idx, point in points.iterrows():
-        nearest_segment = get_nearest_segment(
+        nearest_segment = _get_nearest_segment(
             point.snapped_geometry, network.geometry, idx
         )
         segment_coords = nearest_segment.coords[:]
-        segment_bearing = calculate_bearing(
+        segment_bearing = _calculate_bearing(
             Point(segment_coords[0]), Point(segment_coords[1])
         )
 
@@ -97,6 +155,21 @@ def align_compass_with_road(points, network):
 
 
 def snap_to_road_network(gif, tolerance, network, realign_camera=True):
+    """Snap points to the nearest road network within a given tolerance.
+
+    Args:
+        gif (GeoDataFrame): A GeoDataFrame containing images and their geometries.
+        tolerance (float): The snapping distance in meters.
+        network (GeoDataFrame): A GeoDataFrame containing the road network.
+        realign_camera (bool, optional): If True, realigns the camera angle to match the road. Defaults to True.
+
+    Returns:
+        GeoDataFrame: A GeoDataFrame with updated snapped geometries.
+
+    Raises:
+        Exception: If the network is missing or invalid.
+        warnings.Warn: If not all images could be snapped, or if realign_camera is set but compass_angle is missing.
+    """
     points = gif[["image_url", "geometry"]].copy()
     points = points.to_crs(3857)
 

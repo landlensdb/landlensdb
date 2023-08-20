@@ -12,9 +12,26 @@ from timezonefinder import TimezoneFinder
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
 
-class ImageExifProcessor:
+class Local:
+    """
+    A class to process EXIF data from images, mainly focusing on extracting geotagging information.
+
+    This class includes methods to extract various camera and image properties, such as focal length,
+    camera type, coordinates, and other related data.
+    """
+
     @staticmethod
     def _infer_camera_type(focal_length):
+        """
+        Infers the camera type based on the focal length.
+
+        Args:
+            focal_length (float): The focal length of the camera.
+
+        Returns:
+            str: "fisheye" if focal_length is less than 1.5, otherwise "perspective".
+        """
+
         if not focal_length:
             return np.nan
         # This is a heuristic. Actual classification can vary based on camera and lens specifications.
@@ -25,6 +42,15 @@ class ImageExifProcessor:
 
     @staticmethod
     def get_exif_data(img):
+        """
+        Retrieves the EXIF data from an image.
+
+        Args:
+            img (PIL.Image.Image): The image to extract EXIF data from.
+
+        Returns:
+            dict: A dictionary containing the EXIF data.
+        """
         exif_data = {}
         info = img._getexif()
         if info:
@@ -42,6 +68,15 @@ class ImageExifProcessor:
 
     @staticmethod
     def _to_decimal(coord_tuple):
+        """
+        Converts coordinates from degrees, minutes, and seconds to decimal.
+
+        Args:
+            coord_tuple (tuple or str): The coordinate tuple to convert.
+
+        Returns:
+            float: Decimal representation of the coordinates.
+        """
         if isinstance(coord_tuple, tuple) and len(coord_tuple) == 3:
             return (
                 float(coord_tuple[0])
@@ -58,6 +93,18 @@ class ImageExifProcessor:
 
     @classmethod
     def _get_geotagging(cls, exif):
+        """
+        Extracts geotagging information from EXIF metadata.
+
+        Args:
+            exif (dict): The EXIF metadata.
+
+        Returns:
+            dict: A dictionary containing the geotagging information.
+
+        Raises:
+            ValueError: If no EXIF metadata found or no GPSInfo tag found.
+        """
         if not exif:
             raise ValueError("No EXIF metadata found")
 
@@ -84,18 +131,48 @@ class ImageExifProcessor:
 
     @classmethod
     def _get_image_altitude(cls, geotags):
+        """
+        Retrieves the altitude information from geotags.
+
+        Args:
+            geotags (dict): The geotags information.
+
+        Returns:
+            float: Altitude information if available, otherwise None.
+        """
         if "GPSAltitude" in geotags:
             return geotags["GPSAltitude"]
         return None
 
     @classmethod
     def _get_image_direction(cls, geotags):
+        """
+        Retrieves the image direction information from geotags.
+
+        Args:
+            geotags (dict): The geotags information.
+
+        Returns:
+            float: Image direction information if available, otherwise None.
+        """
         if "GPSImgDirection" in geotags:
             return geotags["GPSImgDirection"]
         return None
 
     @classmethod
     def _get_coordinates(cls, geotags):
+        """
+        Retrieves the latitude and longitude coordinates from geotags.
+
+        Args:
+            geotags (dict): The geotags information.
+
+        Returns:
+            tuple: Latitude and longitude coordinates.
+
+        Raises:
+            ValueError: If the coordinates are invalid.
+        """
         lat = cls._to_decimal(geotags["GPSLatitude"])
         lon = cls._to_decimal(geotags["GPSLongitude"])
 
@@ -109,6 +186,15 @@ class ImageExifProcessor:
 
     @staticmethod
     def _get_focal_length(exif_data):
+        """
+        Retrieves the focal length from the EXIF data.
+
+        Args:
+            exif_data (dict): The EXIF data.
+
+        Returns:
+            float: Focal length if available, otherwise None.
+        """
         focal_length = exif_data.get("FocalLength", None)
 
         if focal_length is None:
@@ -133,6 +219,22 @@ class ImageExifProcessor:
 
     @classmethod
     def load_images(cls, directory):
+        """
+        Loads images from a given directory, extracts relevant information, and returns it in a GeoImageFrame.
+
+        Args:
+            directory (str): Path to the directory containing images.
+
+        Returns:
+            GeoImageFrame: Frame containing the data extracted from the images.
+
+        Raises:
+            ValueError: If no valid images are found in the directory.
+
+        Examples:
+            >>> directory = "/path/to/images"
+            >>> image_data = ImageExifProcessor.load_images(directory)
+        """
         tf = TimezoneFinder()
         data = []
         valid_image_count = 0
