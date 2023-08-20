@@ -33,6 +33,14 @@ geo_frame = GeoImageFrame({'image_url': ['http://example.com/image.jpg'], 'name'
 
 For more detailed examples and full API documentation, refer to the [official documentation](link-to-documentation).
 
+## Testing
+
+This project uses [Pytest](https://pytest.org) for running tests. All tests are located in the `test` directory. To run tests, make sure you have Pytest installed, and then execute the following command:
+
+```bash
+pytest tests
+```
+
 ## Code Formatting
 
 This repository uses [Black](https://github.com/psf/black) for code formatting. To contribute, make sure to format your code with Black (version 22.10.0) targeting Python 3.9:
@@ -53,5 +61,5 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](link-to-license.md) file for details.
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 ```
