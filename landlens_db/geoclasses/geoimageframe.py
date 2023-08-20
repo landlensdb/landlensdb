@@ -8,6 +8,7 @@ from shapely.geometry import Point
 
 from folium.features import CustomIcon
 from sqlalchemy import DDL, MetaData, Table
+from tqdm import tqdm
 
 
 def _generate_arrow_icon(compass_angle):
@@ -242,7 +243,7 @@ class GeoImageFrame(GeoDataFrame):
 
         gdf_copy = self.copy()
 
-        for index, row in gdf_copy.iterrows():
+        for index, row in tqdm(gdf_copy.iterrows(), total=gdf_copy.shape[0]):
             image_url = row["image_url"]
 
             if not image_url.startswith(("http://", "https://")):
@@ -358,6 +359,9 @@ class GeoImageFrame(GeoDataFrame):
         """
         if additional_properties is None:
             additional_properties = []
+
+        if additional_geometries is None:
+            additional_geometries = []
 
         x = self.geometry[0].xy[0][0]
         y = self.geometry[0].xy[1][0]

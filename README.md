@@ -59,6 +59,10 @@ pre-commit install
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 
+## Documentation
+
+This project uses Sphinx and the Read the Docs theme for documentation. Contributors are encouraged to write comprehensive and clear documentation for any new code. For guidelines on writing and building documentation, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.

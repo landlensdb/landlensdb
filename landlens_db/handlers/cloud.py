@@ -1,9 +1,11 @@
+import pytz
 import requests
 import warnings
 
 from datetime import datetime, timezone
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
+from timezonefinder import TimezoneFinder
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
@@ -112,7 +114,7 @@ class Mapillary:
         Converts JSON data from Mapillary to a GeoDataFrame.
 
         Args:
-            json_data (dict): The JSON data from Mapillary.
+            json_data (list): A list of JSON data from Mapillary.
 
         Returns:
             GeoDataFrame: A GeoDataFrame containing the image data.
@@ -240,6 +242,36 @@ class Mapillary:
             dt.astimezone(tz).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         )
         return timestamp
+
+    @staticmethod
+    def _process_timestamp(epoch_time_ms, lat, lng):
+        """
+        Converts the given epoch time in milliseconds to an ISO-formatted timestamp adjusted to the local timezone
+        based on the provided latitude and longitude coordinates.
+
+        Args:
+            epoch_time_ms (int): Epoch time in milliseconds.
+            lat (float): Latitude coordinate for the timezone conversion.
+            lng (float): Longitude coordinate for the timezone conversion.
+
+        Returns:
+            str: An ISO-formatted timestamp in the local timezone if timezone information is found, otherwise in UTC.
+
+        Example:
+            >>> _process_timestamp(1630456103000, 37.7749, -122.4194)
+            '2021-09-01T09:55:03-07:00'
+        """
+        if not epoch_time_ms:
+            return None
+        epoch_time = epoch_time_ms / 1000
+        dt_utc = datetime.fromtimestamp(epoch_time, tz=timezone.utc)
+        tf = TimezoneFinder()
+        tz_name = tf.timezone_at(lat=lat, lng=lng)
+        if tz_name:
+            local_tz = pytz.timezone(tz_name)
+            return dt_utc.astimezone(local_tz).isoformat()
+        else:
+            return dt_utc.isoformat()
 
     def fetch_within_bbox(
         self,
