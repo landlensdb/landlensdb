@@ -3,28 +3,70 @@ Getting Started
 
 Installation
 ------------
-
-You can install landlens_db using pip:
+To install ``landlens_db``, simply use pip:
 
 .. code-block:: bash
 
    pip install landlens_db
 
-Basic Usage
------------
+Loading Images
+--------------
+``landlens_db`` enables loading images from both local directories and the Mapillary API.
 
-Here's a quick example of how to use landlens_db:
+**Local Images**:
 
 .. code-block:: python
 
-   import landlens_db
-   # Add code snippet to demonstrate basic usage
+   from landlens_db.handlers.image import Local
 
-For more detailed examples, please refer to the [link to examples or tutorials if available].
+   local_images = Local.load_images(YOUR_LOCAL_IMAGES_DIRECTORY)
 
-Next Steps
-----------
+**Mapillary Images**:
 
-- Learn more about the available classes and functions in the `API Reference <api_reference>`.
-- Explore advanced features in the [link to advanced guides or tutorials if available].
-- Check out the source code on [GitHub link, or other code repository].
+.. code-block:: python
+
+   from landlens_db.handlers.cloud import Mapillary
+
+   importer = Mapillary(YOUR_MLY_TOKEN)
+   images = importer.fetch_within_bbox(YOUR_BBOX, start_date=START_DATE, end_date=END_DATE)
+
+Processing and Visualization
+----------------------------
+Processing includes snapping images to road networks:
+
+.. code-block:: python
+
+   from landlens_db.process import snap
+
+   snap.snap_to_road_network(image, THRESHOLD, network)
+
+Visualize `GeoImageFrames` using Folium:
+
+.. code-block:: python
+
+   image.map(additional_properties=['altitude', 'camera_type'])
+
+Storing Images
+--------------
+Store `GeoImageFrame` data in different formats or in a PostGIS enabled PostgreSQL database.
+
+**Saving to Geopackage**:
+
+.. code-block:: python
+
+   image.to_file('image1.gpkg')
+
+**Saving to PostgreSQL Database**:
+
+.. code-block:: python
+
+   from landlens_db.handlers.db import Postgres
+
+   db_con = Postgres(DATABASE_URL)
+   local_images.to_postgis(DB_TABLE, db_con.engine)
+
+Additional Features
+-------------------
+Explore further functionalities such as querying existing tables, loading data from arbitrary sources, updating existing tables, and more in the API documentation.
+
+With ``landlens_db``, you have all the necessary tools to manage, analyze, and visualize geolocated images effortlessly.
