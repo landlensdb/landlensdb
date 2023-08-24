@@ -218,12 +218,13 @@ class Local:
             return None
 
     @classmethod
-    def load_images(cls, directory):
+    def load_images(cls, directory, additional_columns=None):
         """
         Loads images from a given directory, extracts relevant information, and returns it in a GeoImageFrame.
 
         Args:
             directory (str): Path to the directory containing images.
+            additional_columns (list, optional): List of additional column names or tuples containing column name and EXIF tag.
 
         Returns:
             GeoImageFrame: Frame containing the data extracted from the images.
@@ -233,7 +234,7 @@ class Local:
 
         Examples:
             >>> directory = "/path/to/images"
-            >>> image_data = ImageExifProcessor.load_images(directory)
+            >>> image_data = Local.load_images(directory)
         """
         tf = TimezoneFinder()
         data = []
@@ -290,19 +291,27 @@ class Local:
                     compass_angle = np.float32(cls._get_image_direction(geotags))
                     exif_orientation = np.float32(exif_data.get("Orientation", None))
 
-                    data.append(
-                        {
-                            "name": filepath.split("/")[-1],
-                            "altitude": altitude,
-                            "camera_type": camera_type,
-                            "camera_parameters": camera_parameters,
-                            "captured_at": captured_at,
-                            "compass_angle": compass_angle,
-                            "exif_orientation": exif_orientation,
-                            "image_url": filepath,
-                            "geometry": geometry,
-                        }
-                    )
+                    image_data = {
+                        "name": filepath.split("/")[-1],
+                        "altitude": altitude,
+                        "camera_type": camera_type,
+                        "camera_parameters": camera_parameters,
+                        "captured_at": captured_at,
+                        "compass_angle": compass_angle,
+                        "exif_orientation": exif_orientation,
+                        "image_url": filepath,
+                        "geometry": geometry,
+                    }
+
+                    for column_info in additional_columns or []:
+                        if isinstance(column_info, str):
+                            image_data[column_info] = np.nan
+                        elif isinstance(column_info, tuple):
+                            col_name, exif_tag = column_info
+                            image_data[col_name] = exif_data.get(exif_tag, np.nan)
+
+                    data.append(image_data)
+
         if valid_image_count == 0:
             raise ValueError("The directory does not contain any valid images")
 
