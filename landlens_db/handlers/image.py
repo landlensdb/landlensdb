@@ -1,9 +1,13 @@
+import json
 import os
 import pytz
 import warnings
+import numbers
 
 import numpy as np
+
 from datetime import datetime
+from importlib.resources import read_text
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 from shapely import Point
@@ -21,20 +25,49 @@ class Local:
     """
 
     @staticmethod
-    def _infer_camera_type(focal_length):
+    def _get_camera_model(exif_data):
         """
-        Infers the camera type based on the focal length.
+        Extracts the camera model from the EXIF data.
+
+        Args:
+            exif_data (dict): The EXIF data.
+
+        Returns:
+            str: Camera model if available, otherwise None.
+        """
+        return exif_data.get("Model", "").strip()
+
+    @staticmethod
+    def _infer_camera_type(focal_length, camera_model=None):
+        """
+        Infers the camera type based on the focal length and camera model.
 
         Args:
             focal_length (float): The focal length of the camera.
+            camera_model (str): The camera model.
 
         Returns:
-            str: "fisheye" if focal_length is less than 1.5, otherwise "perspective".
+            str: One of "fisheye", "perspective", or "360-degree".
         """
-
-        if not focal_length:
+        if not focal_length and not camera_model:
             return np.nan
-        # This is a heuristic. Actual classification can vary based on camera and lens specifications.
+
+        package_name = "landlens_db.handlers"
+        resource_name = "known_cameras.json"
+
+        try:
+            known_cameras_data_str = read_text(package_name, resource_name)
+            known_cameras_data = json.loads(known_cameras_data_str)
+        except FileNotFoundError:
+            with open(resource_name, "r") as file:
+                known_cameras_data = json.load(file)
+
+        known_360_cameras = known_cameras_data.get("360 Models", [])
+
+        if camera_model in known_360_cameras:
+            return "360-degree"
+
+        # Further classification based on focal length
         if focal_length < 1.5:
             return "fisheye"
         else:
@@ -200,7 +233,10 @@ class Local:
         if focal_length is None:
             return None
 
-        if (
+        if isinstance(focal_length, numbers.Number):
+            return float(focal_length)
+
+        elif (
             isinstance(focal_length, tuple)
             and len(focal_length) == 2
             and focal_length[1] != 0
@@ -260,7 +296,8 @@ class Local:
                         )
                         continue
                     focal_length = cls._get_focal_length(exif_data)
-                    camera_type = cls._infer_camera_type(focal_length)
+                    camera_model = cls._get_camera_model(exif_data)
+                    camera_type = cls._infer_camera_type(focal_length, camera_model)
 
                     k1 = None
                     k2 = None
