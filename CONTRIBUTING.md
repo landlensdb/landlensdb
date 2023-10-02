@@ -85,7 +85,6 @@ If you're contributing new code, please make sure to include well-written docstr
 ### Adding to the Official Documentation
 
 When your changes are merged, the official documentation will be automatically updated. Ensure that your documentation is clear, concise, and follows the established conventions.
-```
 
 ## License
 
