@@ -7,7 +7,7 @@ import numbers
 import numpy as np
 
 from datetime import datetime
-from importlib.resources import read_text
+from importlib.resources import path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 from shapely import Point
@@ -56,10 +56,13 @@ class Local:
         resource_name = "known_cameras.json"
 
         try:
-            known_cameras_data_str = read_text(package_name, resource_name)
-            known_cameras_data = json.loads(known_cameras_data_str)
-        except FileNotFoundError:
-            with open(resource_name, "r") as file:
+            with path(package_name, resource_name) as resource_path:
+                with open(resource_path, "r") as file:
+                    known_cameras_data = json.load(file)
+        except (FileNotFoundError, ImportError):
+            script_dir = os.path.dirname(os.path.realpath(__file__))
+            fallback_path = os.path.join(script_dir, resource_name)
+            with open(fallback_path, "r") as file:
                 known_cameras_data = json.load(file)
 
         known_360_cameras = known_cameras_data.get("360 Models", [])
