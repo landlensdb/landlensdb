@@ -1,4 +1,3 @@
-import json
 import os
 import pytz
 import warnings
@@ -7,13 +6,17 @@ import numbers
 import numpy as np
 
 from datetime import datetime
-from importlib.resources import path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 from shapely import Point
 from timezonefinder import TimezoneFinder
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
+
+
+KNOWN_CAMERAS = {
+    "360 Models": ["RICOH THETA SC", "RICOH THETA S", "RICOH THETA V", "RICOH THETA X"]
+}
 
 
 class Local:
@@ -52,20 +55,7 @@ class Local:
         if not focal_length and not camera_model:
             return np.nan
 
-        package_name = "landlens_db.handlers"
-        resource_name = "known_cameras.json"
-
-        try:
-            with path(package_name, resource_name) as resource_path:
-                with open(resource_path, "r") as file:
-                    known_cameras_data = json.load(file)
-        except (FileNotFoundError, ImportError):
-            script_dir = os.path.dirname(os.path.realpath(__file__))
-            fallback_path = os.path.join(script_dir, resource_name)
-            with open(fallback_path, "r") as file:
-                known_cameras_data = json.load(file)
-
-        known_360_cameras = known_cameras_data.get("360 Models", [])
+        known_360_cameras = KNOWN_CAMERAS.get("360 Models", [])
 
         if camera_model in known_360_cameras:
             return "360-degree"
