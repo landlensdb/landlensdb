@@ -3,9 +3,9 @@ Introduction
 
 landlens_db: Geospatial Image Handling Library
 ----------------------------------------------
-``landlens_db`` is a versatile Python library built to manage geolocated images with ease. Whether dealing with images acquired from local directories or fetching them from the Mapillary API, the library offers streamlined functions and classes.
+``landlens_db`` is a Python library built to manage geolocated images. It can handle images stored in local directories or can fetch them from the cloud. Currently, it supports connections with the Mapillary API.
 
-With tools to align images with road networks, manipulate their formats, and manage PostgreSQL database operations, ``landlens_db`` stands as a robust platform for managing and processing geospatial data.
+``landlens_db`` has tools to align images with road networks, manipulate their formats, and manage PostgreSQL database operations. We designed ``landlens_db`` to stand as a robust platform for managing and processing geospatial data.
 
 Modules
 -------

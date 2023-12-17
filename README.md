@@ -2,7 +2,9 @@
 
 ## Introduction
 
-`landlens_db` is a Python library designed to manage and process geolocated images. It facilitates operations such as downloading, mapping, saving, fetching images, aligning with road networks, and managing PostgreSQL database operations.
+`landlens_db` is a Python library designed to manage and process geolocated images. It facilitates operations such
+as downloading, mapping, saving, fetching images, aligning with road networks, and managing 
+PostgreSQL database operations.
 
 ## Features
 
@@ -35,7 +37,8 @@ For more detailed examples and full API documentation, refer to the [official do
 
 ## Testing
 
-This project uses [Pytest](https://pytest.org) for running tests. All tests are located in the `test` directory. To run tests, make sure you have Pytest installed, and then execute the following command:
+This project uses [Pytest](https://pytest.org) for running tests. All tests are located in the `test` directory.
+To run tests, make sure you have Pytest installed, and then execute the following command:
 
 ```bash
 pytest tests
@@ -43,7 +46,8 @@ pytest tests
 
 ## Code Formatting
 
-This repository uses [Black](https://github.com/psf/black) for code formatting. To contribute, make sure to format your code with Black (version 22.10.0) targeting Python 3.9:
+This repository uses [Black](https://github.com/psf/black) for code formatting. To contribute, make sure to format your code with Black 
+(version 22.10.0) targeting Python 3.9:
 
 ```bash
 pre-commit run --all-files
@@ -57,11 +61,14 @@ pre-commit install
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for 
+submitting pull requests.
 
 ## Documentation
 
-This project uses Sphinx and the Read the Docs theme for documentation. Contributors are encouraged to write comprehensive and clear documentation for any new code. For guidelines on writing and building documentation, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+This project uses Sphinx and the Read the Docs theme for documentation. Contributors are encouraged to write 
+comprehensive and clear documentation for any new code. For guidelines on writing and building documentation,
+please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## License
 

@@ -1,10 +1,12 @@
 # Contributing to landlens_db
 
-First off, thank you for considering contributing to `landlens_db`. It's people like you that make this project a great tool.
+First off, thank you for considering contributing to `landlens_db`. It's people like you that make this
+project a great tool.
 
 ## Code of Conduct
 
-By participating, you are expected to uphold our code of conduct. Please report unacceptable behavior to [ipercival@gmail.com](ipercival@gmail.com).
+By participating, you are expected to uphold our code of conduct. Please report unacceptable
+behavior to [ipercival@gmail.com](ipercival@gmail.com).
 
 ## How to Contribute
 
@@ -46,11 +48,13 @@ We use Black with Python 3.9. Make sure your code is formatted accordingly befor
 
 ## Testing
 
-Before submitting your changes, please make sure to run the full test suite. Instructions on how to run the tests are found in the project's README.
+Before submitting your changes, please make sure to run the full test suite. Instructions on how to run the tests
+are found in the project's README.
 
 ## Writing Documentation
 
-Documentation is a vital part of `landlens_db`, helping users and developers understand the functionality and usage of the library. We use Sphinx with the Read the Docs theme to generate the documentation.
+Documentation is a vital part of `landlens_db`, helping users and developers understand the functionality 
+and usage of the library. We use Sphinx with the Read the Docs theme to generate the documentation.
 
 ### Guidelines
 
@@ -80,11 +84,13 @@ Documentation is a vital part of `landlens_db`, helping users and developers und
 
 4. Open the generated HTML files in your browser to preview the documentation.
 
-If you're contributing new code, please make sure to include well-written docstrings following our guidelines. Review the existing documentation to understand the style and content that we expect.
+If you're contributing new code, please make sure to include well-written docstrings following our
+guidelines. Review the existing documentation to understand the style and content that we expect.
 
 ### Adding to the Official Documentation
 
-When your changes are merged, the official documentation will be automatically updated. Ensure that your documentation is clear, concise, and follows the established conventions.
+When your changes are merged, the official documentation will be automatically updated. Ensure that
+your documentation is clear, concise, and follows the established conventions.
 
 ## License
 
