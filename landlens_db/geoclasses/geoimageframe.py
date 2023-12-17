@@ -7,7 +7,9 @@ from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
 from folium.features import CustomIcon
-from sqlalchemy import DDL, MetaData, Table
+from sqlalchemy import MetaData
+from sqlalchemy.sql import text
+from sqlalchemy.inspection import inspect
 from tqdm import tqdm
 
 
@@ -156,44 +158,53 @@ class GeoImageFrame(GeoDataFrame):
         if self.crs != "EPSG:4326":
             raise ValueError("CRS must be EPSG:4326.")
 
-        metadata = MetaData(bind=engine)
-        table_exists = engine.has_table(name)
+        metadata = MetaData()
 
-        if not table_exists:
+        # Reflect the database schema
+        metadata.reflect(bind=engine)
+
+        if not inspect(engine).has_table(name):
             super().to_postgis(name, engine, if_exists=if_exists, *args, **kwargs)
 
-            table = Table(name, metadata, autoload=True, autoload_with=engine)
+            table = metadata.tables[name]
 
-            for col in required_columns:
-                stmt = DDL(f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL")
-                engine.execute(stmt)
+            with engine.connect() as conn:
+                for col in required_columns:
+                    stmt = text(
+                        f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL"
+                    )
+                    conn.execute(stmt)
 
-            stmt = DDL(
-                f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
-            )
-            engine.execute(stmt)
+                stmt = text(
+                    f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
+                )
+                conn.execute(stmt)
 
         else:
             if if_exists == "fail":
                 raise ValueError(f"Table '{name}' already exists.")
 
             elif if_exists == "replace":
-                table = Table(name, metadata, autoload=True, autoload_with=engine)
-                table.drop(engine)
+                table = metadata.tables[name]
+                with engine.connect() as conn:
+                    table.drop(conn)
                 super().to_postgis(name, engine, if_exists="replace", *args, **kwargs)
 
-                table = Table(name, metadata, autoload=True, autoload_with=engine)
+                # Reflect metadata again as the table structure might have changed
+                metadata.reflect(bind=engine)
+                table = metadata.tables[name]
 
-                for col in required_columns:
-                    stmt = DDL(
-                        f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL"
+                with engine.connect() as conn:
+                    for col in required_columns:
+                        stmt = text(
+                            f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL"
+                        )
+                        conn.execute(stmt)
+
+                    stmt = text(
+                        f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
                     )
-                    engine.execute(stmt)
-
-                stmt = DDL(
-                    f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
-                )
-                engine.execute(stmt, table=table.name)
+                    conn.execute(stmt)
 
             elif if_exists == "append":
                 super().to_postgis(name, engine, if_exists="append", *args, **kwargs)

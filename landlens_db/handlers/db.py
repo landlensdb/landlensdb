@@ -1,7 +1,7 @@
 from geoalchemy2 import WKBElement
-from geoalchemy2.shape import to_shape
+from shapely.wkb import loads
 from shapely import Point
-from sqlalchemy import create_engine, MetaData, Table, select, distinct, and_
+from sqlalchemy import create_engine, MetaData, Table, select, and_
 from sqlalchemy.dialects.postgresql import insert
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
@@ -57,9 +57,7 @@ class Postgres:
             ImageDB: Returns self to enable method chaining.
         """
         metadata = MetaData()
-        self.selected_table = Table(
-            table_name, metadata, autoload=True, autoload_with=self.engine
-        )
+        self.selected_table = Table(table_name, metadata, autoload_with=self.engine)
         self.result_set = self.selected_table.select()
         return self
 
@@ -117,8 +115,12 @@ class Postgres:
         Raises:
             TypeError: If geometries are not of type Point.
         """
-        result = self.engine.execute(self.result_set)
-        data = [dict(row) for row in result.fetchall()]
+        with self.engine.connect() as conn:
+            result = conn.execute(self.result_set)
+            data = [row._asdict() for row in result.fetchall()]
+
+        if not data:
+            return GeoImageFrame([])  # Adjust according to your GeoImageFrame handling
 
         df_data = {col: [] for col in data[0].keys()}
 
@@ -126,7 +128,9 @@ class Postgres:
             for col, value in d.items():
                 if isinstance(value, WKBElement):
                     try:
-                        point_geom = to_shape(value)
+                        point_geom = loads(
+                            bytes(value.data)
+                        )  # convert WKBElement to Shapely geometry
                         if point_geom.geom_type != "Point":
                             raise TypeError("All geometries must be of type Point.")
                         df_data[col].append(point_geom)
@@ -152,16 +156,23 @@ class Postgres:
             ValueError: If the specified column is not found in the table.
         """
         metadata = MetaData()
-        table = Table(table_name, metadata, autoload=True, autoload_with=self.engine)
+        metadata.reflect(bind=self.engine)
 
-        column = getattr(table.columns, column_name, None)
-        if not column:
+        if table_name not in metadata.tables:
+            raise ValueError(f"Table '{table_name}' not found.")
+
+        table = metadata.tables[table_name]
+
+        if column_name not in table.columns:
             raise ValueError(
                 f"Column '{column_name}' not found in table '{table_name}'"
             )
 
-        distinct_query = select([distinct(column)])
-        result = self.engine.execute(distinct_query)
+        column = table.columns[column_name]
+
+        distinct_query = select(column).distinct()
+        with self.engine.connect() as conn:
+            result = conn.execute(distinct_query)
 
         distinct_values = [row[0] for row in result.fetchall()]
         return distinct_values
