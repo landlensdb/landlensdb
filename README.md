@@ -22,6 +22,12 @@ Install the package using pip:
 pip install landlens_db
 ```
 
+## Tutorial
+
+There is Jupyter notebook tutorial that showcases some simple commands and usage of `landlens_db`. To run this tutorial, you
+must install `dotenv~==1.0.0` and `jupyter`.
+
+
 ## Usage
 
 Example to create a `GeoImageFrame`:
