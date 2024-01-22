@@ -134,8 +134,17 @@ def align_compass_with_road(points, network):
     Returns:
         GeoDataFrame: A GeoDataFrame with updated snapped_angle field.
     """
+    if points["snapped_geometry"].isnull().any():
+        warnings.warn(
+            """
+            GeodataImageFrame contains rows with empty snapped_geometry. Non-snapped images will be skipped.
+            To snap all images, try increasing the threshold or changing the road network.
+            """
+        )
     idx = _create_spatial_index(network.geometry)
     for row_idx, point in points.iterrows():
+        if point.snapped_geometry is None:
+            continue
         nearest_segment = _get_nearest_segment(
             point.snapped_geometry, network.geometry, idx
         )

@@ -1,6 +1,7 @@
 import pytz
 import requests
 import warnings
+import pyogrio
 
 from datetime import datetime, timezone
 from geopandas import GeoDataFrame

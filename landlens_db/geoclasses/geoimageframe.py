@@ -1,6 +1,7 @@
 import base64
 import folium
 import os
+import warnings
 
 import requests
 from geopandas import GeoDataFrame
@@ -387,19 +388,27 @@ class GeoImageFrame(GeoDataFrame):
             nonlocal image_urls
             marker_group = folium.FeatureGroup(name=group_name)
 
-            points = [
-                [point.xy[1][0], point.xy[0][0]] for point in self[geo_col] if point
-            ]
-            for i, coordinates in enumerate(points):
-                url = image_urls[i] if image_urls else self.image_url[i]
-                html = self._popup_html(i, url, additional_properties)
-                popup = folium.Popup(html=html, max_width=500, lazy=True)
+            if geo_col not in self.columns:
+                warnings.warn(f"Geometry field '{geo_col}' does not exist. Skipping.")
+                return
 
-                compass_angle = getattr(self, angle_col)[i]
-                icon = _generate_arrow_icon(compass_angle)
+            for i, geom in self[geo_col].items():
+                if isinstance(geom, Point) and geom is not None:
+                    coordinates = [geom.xy[1][0], geom.xy[0][0]]
 
-                marker = folium.Marker(location=coordinates, popup=popup, icon=icon)
-                marker.add_to(marker_group)
+                    url = image_urls[i] if image_urls else self.image_url[i]
+                    html = self._popup_html(i, url, additional_properties)
+                    popup = folium.Popup(html=html, max_width=500, lazy=True)
+
+                    compass_angle = getattr(self, angle_col)[i]
+                    icon = _generate_arrow_icon(compass_angle)
+
+                    marker = folium.Marker(location=coordinates, popup=popup, icon=icon)
+                    marker.add_to(marker_group)
+                else:
+                    warnings.warn(
+                        f"Item at index {i} in '{geo_col}' is not a valid Point. Skipping."
+                    )
 
             marker_group.add_to(map_obj)
 
