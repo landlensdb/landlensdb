@@ -160,55 +160,34 @@ class GeoImageFrame(GeoDataFrame):
             raise ValueError("CRS must be EPSG:4326.")
 
         metadata = MetaData()
-
-        # Reflect the database schema
         metadata.reflect(bind=engine)
 
         if not inspect(engine).has_table(name):
             super().to_postgis(name, engine, if_exists=if_exists, *args, **kwargs)
-
-            table = metadata.tables[name]
-
-            with engine.connect() as conn:
-                for col in required_columns:
-                    stmt = text(
-                        f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL"
-                    )
-                    conn.execute(stmt)
-
-                stmt = text(
-                    f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
-                )
-                conn.execute(stmt)
-
         else:
             if if_exists == "fail":
                 raise ValueError(f"Table '{name}' already exists.")
-
             elif if_exists == "replace":
                 table = metadata.tables[name]
                 with engine.connect() as conn:
                     table.drop(conn)
                 super().to_postgis(name, engine, if_exists="replace", *args, **kwargs)
 
-                # Reflect metadata again as the table structure might have changed
-                metadata.reflect(bind=engine)
-                table = metadata.tables[name]
-
-                with engine.connect() as conn:
-                    for col in required_columns:
-                        stmt = text(
-                            f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL"
-                        )
-                        conn.execute(stmt)
-
-                    stmt = text(
-                        f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
-                    )
-                    conn.execute(stmt)
-
             elif if_exists == "append":
                 super().to_postgis(name, engine, if_exists="append", *args, **kwargs)
+
+        metadata.reflect(bind=engine)
+        table = metadata.tables[name]
+
+        with engine.connect() as conn:
+            for col in required_columns:
+                stmt = text(f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL")
+                conn.execute(stmt)
+            stmt = text(
+                f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
+            )
+            conn.execute(stmt)
+            conn.connection.commit()
 
     @staticmethod
     def _download_image_from_url(url, dest_path):
