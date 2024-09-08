@@ -56,6 +56,7 @@ class Mapillary:
         "thumb_original_url",
     ]
     LIMIT = 2000
+    TF = TimezoneFinder()
 
     def __init__(self, mapillary_token):
         """
@@ -244,8 +245,7 @@ class Mapillary:
         )
         return timestamp
 
-    @staticmethod
-    def _process_timestamp(epoch_time_ms, lat, lng):
+    def _process_timestamp(self, epoch_time_ms, lat, lng):
         """
         Converts the given epoch time in milliseconds to an ISO-formatted timestamp adjusted to the local timezone
         based on the provided latitude and longitude coordinates.
@@ -266,8 +266,8 @@ class Mapillary:
             return None
         epoch_time = epoch_time_ms / 1000
         dt_utc = datetime.fromtimestamp(epoch_time, tz=timezone.utc)
-        tf = TimezoneFinder()
-        tz_name = tf.timezone_at(lat=lat, lng=lng)
+
+        tz_name = self.TF.timezone_at(lat=lat, lng=lng)
         if tz_name:
             local_tz = pytz.timezone(tz_name)
             return dt_utc.astimezone(local_tz).isoformat()
