@@ -1,3 +1,5 @@
+import json
+
 from geoalchemy2 import WKBElement
 from shapely.wkb import loads
 from shapely import Point
@@ -44,6 +46,22 @@ class Postgres:
         for key, value in record.items():
             if isinstance(value, Point):
                 record[key] = value.wkt
+        return record
+
+    @staticmethod
+    def _convert_dicts_to_json(record):
+        """
+        Converts dictionary values in a record to JSON strings.
+
+        Args:
+            record (dict): A dictionary where values may include other dictionaries.
+
+        Returns:
+            dict: The modified record with dict values converted to JSON strings.
+        """
+        for key, value in record.items():
+            if isinstance(value, dict):
+                record[key] = json.dumps(value)
         return record
 
     def table(self, table_name):
@@ -194,9 +212,10 @@ class Postgres:
         meta = MetaData()
         table = Table(table_name, meta, autoload_with=self.engine)
 
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             for record in data:
                 record = self._convert_points_to_wkt(record)
+                record = self._convert_dicts_to_json(record)
                 insert_stmt = insert(table).values(**record)
                 if conflict == "update":
                     updates = {
