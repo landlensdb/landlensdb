@@ -39,12 +39,52 @@ We use Black with Python 3.9. Make sure your code is formatted accordingly befor
     pre-commit run --all-files
     ```
 
-#### Submitting a Pull Request
+### Branching and Versioning Strategy
 
-1. Create a new branch from `main` for your feature or bug fix.
-2. Make your changes, following our coding style and guidelines.
-3. Commit your changes and push to your fork.
-4. Open a pull request with a clear title and description against the `main` branch.
+#### Branching Strategy
+
+This project follows the GitHub Flow branching strategy:
+- main branch:
+   - Always contains stable, production-ready code.
+   - Releases are tagged on this branch.
+- Feature branches:
+   - Create from main branch:
+   ```
+   git checkout -b feature/my-feature-name
+   ```
+   - Push your changes regularly:
+   ```
+   git push origin feature/my-feature-name
+   ```
+
+- Bugfix branches:
+   - Create from main and reference issue numbers clearly:
+   ```
+   git checkout -b bugfix/issue-123-description
+   ```
+   - Push fixes:
+   ```
+   git push origin bugfix/issue-123-description
+   ```
+
+- Submitting Pull Requests:
+   - Always submit your feature or bugfix branches via pull requests (PRs) against the main branch.
+   - PRs must pass all automated tests and CI checks before merging.
+   - Code review and approval are required for merging.
+
+#### Versioning Strategy
+
+landlens_db uses Semantic Versioning (semver.org) to clearly communicate the nature of releases.
+- Patch: Increment (e.g., 1.0.x) for bug fixes and minor changes not affecting API.
+- Minor: Increment (e.g., 1.x.0) for new backward-compatible features and improvements.
+- Major: Increment (e.g., x.0.0) for breaking changes or significant architectural shifts.
+
+Version tags will always be created in the main branch after merging PRs, e.g.:
+
+```bash
+git tag -a v1.2.0 -m "Release version 1.2.0 - Added Mapillary pagination"
+git push origin --tags
+```
 
 ## Testing
 
