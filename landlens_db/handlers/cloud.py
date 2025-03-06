@@ -48,6 +48,13 @@ class Mapillary:
         "sfm_cluster",
         "width",
         "detections",
+        "quality_score"  # Added quality score field
+    ]
+
+    QUALITY_INDICATORS = [
+        "quality_score",  # Primary quality indicator
+        "computed_compass_angle",  # Secondary indicator
+        "atomic_scale"  # Tertiary indicator
     ]
     IMAGE_URL_KEYS = [
         "thumb_256_url",
@@ -121,18 +128,25 @@ class Mapillary:
         Returns:
             GeoDataFrame: A GeoDataFrame containing the image data.
         """
+        # Early return if no data
+        if not json_data:
+            return GeoDataFrame(geometry=[])
+
         for img in json_data:
+            # Basic field conversions
             coords = img.get("geometry", {}).get("coordinates", [None, None])
             img["geometry"] = Point(coords)
             img["mly_id"] = img.pop("id")
             img["name"] = f"mly|{img['mly_id']}"
 
+            # Handle computed geometry
             if "computed_geometry" in img:
                 coords = img.get("computed_geometry", {}).get(
                     "coordinates", [None, None]
                 )
                 img["computed_geometry"] = Point(coords)
 
+            # Process timestamp with timezone
             if "captured_at" in img:
                 lat = img["geometry"].y
                 lng = img["geometry"].x
@@ -140,17 +154,39 @@ class Mapillary:
                     img.get("captured_at"), lat, lng
                 )
 
+            # Set image URL from available options
             for key in self.IMAGE_URL_KEYS:
                 if key in img:
                     img["image_url"] = img.pop(key)
                     break
 
+            # Convert list parameters to strings
             for key in ["camera_parameters", "computed_rotation"]:
                 if key in img and isinstance(img[key], list):
                     img[key] = ",".join(map(str, img[key]))
 
+            # Calculate quality score if not present
+            if "quality_score" not in img:
+                quality_score = 0.0
+                if "computed_compass_angle" in img:
+                    quality_score += 0.5  # Good compass data
+                if "atomic_scale" in img:
+                    quality_score += 0.3  # Good scale data
+                if img.get("camera_type"):
+                    quality_score += 0.2  # Camera type available
+                img["quality_score"] = quality_score
+
+        # Create GeoDataFrame
         gdf = GeoDataFrame(json_data, crs="EPSG:4326")
         gdf.set_geometry("geometry", inplace=True)
+
+        # Sort by quality indicators and drop duplicates by sequence
+        if "sequence" in gdf.columns:
+            sort_columns = [col for col in self.QUALITY_INDICATORS if col in gdf.columns]
+            if sort_columns:
+                gdf = gdf.sort_values(sort_columns, ascending=False)
+                gdf = gdf.drop_duplicates(subset=['sequence'], keep='first')
+
         return gdf
 
     def _recursive_fetch(
@@ -283,17 +319,28 @@ class Mapillary:
         max_recursion_depth=25,
     ):
         """
-        Fetches images within a bounding box.
+        Fetches images within a bounding box, with intelligent duplicate handling.
 
         Args:
-            initial_bbox (list): The initial bounding box.
-            start_date (str, optional): The starting date for filtering images.
-            end_date (str, optional): The ending date for filtering images.
-            fields (list, optional): The fields to include in the response.
-            max_recursion_depth (int, optional): Maximum depth of recursion.
+            initial_bbox (list): The initial bounding box coordinates [min_lon, min_lat, max_lon, max_lat].
+            start_date (str, optional): The starting date for filtering images (YYYY-MM-DD format).
+            end_date (str, optional): The ending date for filtering images (YYYY-MM-DD format).
+            fields (list, optional): The fields to include in the response. Defaults to all available fields.
+            max_recursion_depth (int, optional): Maximum depth of recursion for large areas.
 
         Returns:
-            GeoImageFrame: A GeoImageFrame containing the fetched images.
+            GeoImageFrame: A GeoImageFrame containing the fetched images. The results are automatically
+            filtered to keep only the highest quality image from each sequence based on:
+            1. quality_score - If available, primary indicator of image quality
+            2. computed_compass_angle - Secondary indicator for positional accuracy
+            3. atomic_scale - Tertiary indicator for image resolution/quality
+            
+            This ensures optimal data quality while minimizing redundancy in the dataset.
+
+        Note:
+            When fetching from areas with many images, the method automatically handles pagination
+            and area subdivision to ensure complete coverage. For sequence-based operations,
+            consider using fetch_by_sequence() instead.
         """
         if fields is None:
             fields = self.FIELDS_LIST
@@ -301,6 +348,7 @@ class Mapillary:
             self._validate_fields(fields)
         start_timestamp = self._get_timestamp(start_date)
         end_timestamp = self._get_timestamp(end_date, end_of_day=True)
+        # Fetch raw data from Mapillary API
         images = self._recursive_fetch(
             initial_bbox,
             fields,
@@ -308,8 +356,11 @@ class Mapillary:
             end_timestamp,
             max_recursion_depth=max_recursion_depth,
         )
+        
+        # Convert to GeoDataFrame with automatic duplicate handling
         data = self._json_to_gdf(images)
-        data.drop_duplicates(subset="mly_id", inplace=True)
+        
+        # Convert to GeoImageFrame for additional functionality
         return GeoImageFrame(data, geometry="geometry")
 
     def fetch_by_id(self, image_id, fields=None):
