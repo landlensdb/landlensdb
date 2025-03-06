@@ -1,9 +1,9 @@
+import warnings
+from datetime import datetime, timezone
+
+import pyogrio
 import pytz
 import requests
-import warnings
-import pyogrio
-
-from datetime import datetime, timezone
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 from timezonefinder import TimezoneFinder
@@ -24,7 +24,7 @@ class Mapillary:
     """
 
     BASE_URL = "https://graph.mapillary.com"
-    HEADERS_TEMPLATE = {"Authorization": "OAuth {}"}
+    HEADERS_TEMPLATE = {"Authorization": "{}"}
     REQUIRED_FIELDS = ["id", "geometry"]
     FIELDS_LIST = [
         "id",
@@ -334,7 +334,7 @@ class Mapillary:
             1. quality_score - If available, primary indicator of image quality
             2. computed_compass_angle - Secondary indicator for positional accuracy
             3. atomic_scale - Tertiary indicator for image resolution/quality
-            
+
             This ensures optimal data quality while minimizing redundancy in the dataset.
 
         Note:
@@ -356,10 +356,10 @@ class Mapillary:
             end_timestamp,
             max_recursion_depth=max_recursion_depth,
         )
-        
+
         # Convert to GeoDataFrame with automatic duplicate handling
         data = self._json_to_gdf(images)
-        
+
         # Convert to GeoImageFrame for additional functionality
         return GeoImageFrame(data, geometry="geometry")
 
