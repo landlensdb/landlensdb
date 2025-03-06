@@ -131,3 +131,16 @@ dmypy.json
 .idea/
 
 notebooks/data/
+
+# Test and temporary data
+test_images/
+notebooks/temp/
+ai/
+
+# Generated files
+test_map.html
+*_updated.ipynb
+
+# Cache directories
+test_cache/
+cache/
