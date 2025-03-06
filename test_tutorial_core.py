@@ -1,14 +1,9 @@
 import os
-from io import BytesIO
-from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import requests
 from dotenv import load_dotenv
-from PIL import Image
-from shapely.geometry import Point
 from sqlalchemy import DateTime, Float, Integer, String, text
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
@@ -45,8 +40,9 @@ def get_existing_mapillary_data(db_con, table_name):
         print(f"Error fetching existing Mapillary data: {str(e)}")
         return {}
 
+
 def ensure_table_schema(db_con, table_name):
-    """Ensure the table has the correct schema for both local and Mapillary images."""
+    """Ensure the table has the correct schema for local and Mapillary images."""
     try:
         # Drop table if exists
         drop_query = text(f"DROP TABLE IF EXISTS {table_name};")
@@ -75,8 +71,10 @@ def ensure_table_schema(db_con, table_name):
             snapped_angle DOUBLE PRECISION
         );
         CREATE INDEX IF NOT EXISTS idx_mly_id ON {table_name} (mly_id);
-        CREATE INDEX IF NOT EXISTS idx_geometry ON {table_name} USING GIST (geometry);
-        CREATE INDEX IF NOT EXISTS idx_snapped_geometry ON {table_name} USING GIST (snapped_geometry);
+        CREATE INDEX IF NOT EXISTS idx_geometry
+            ON {table_name} USING GIST (geometry);
+        CREATE INDEX IF NOT EXISTS idx_snapped_geometry
+            ON {table_name} USING GIST (snapped_geometry);
         """)
         with db_con.engine.connect() as conn:
             conn.execute(create_query)
@@ -163,7 +161,9 @@ def test_mapillary_images():
     print("\nTesting Mapillary image loading...")
     try:
         # Define a very small bounding box in Tokyo (around Shibuya crossing)
-        bbox = [139.7003, 35.6585, 139.7013, 35.6595]  # ~100m x 100m area
+        # This is approximately 100m x 100m area
+        bbox = [139.7003, 35.6585, 139.7013, 35.6595]
+        print(f"Testing area: {bbox} (approximately 100m x 100m in Tokyo)")
 
         # Create handlers
         handler = Mapillary(os.getenv("MLY_TOKEN"))
@@ -177,30 +177,56 @@ def test_mapillary_images():
         existing_data = get_existing_mapillary_data(db_con, table_name)
         print(f"Found {len(existing_data)} existing Mapillary images in database")
 
-        # Load images from Mapillary with enhanced fields
+        # Skip traditional method due to API limitations
+        print("\nSkipping traditional method due to API limitations")
+
+        # Test coverage tiles method
+        print("\nTesting coverage tiles method...")
         fields = [
             "id", "altitude", "captured_at", "camera_type", "thumb_1024_url",
-            "compass_angle", "computed_compass_angle", "computed_geometry", "geometry",
-            "sequence", "quality_score"
+            "compass_angle", "computed_compass_angle", "computed_geometry",
+            "geometry", "sequence", "quality_score"
         ]
-        all_images = handler.fetch_within_bbox(bbox, fields=fields)
 
-        if all_images is not None:
-            print(f"Found {len(all_images)} total Mapillary images")
+        # Set a small max_images limit to avoid processing too many images
+        coverage_images = handler.fetch_within_bbox(
+            bbox,
+            fields=fields,
+            use_coverage_tiles=True,
+            max_images=100  # Limit to 100 images
+        )
+
+        print(f"\nCoverage tiles method found: {len(coverage_images)} images")
+
+        # Use the coverage tiles results for further processing
+        all_images = coverage_images
+
+        if all_images is not None and len(all_images) > 0:
+            print(f"\nAnalyzing {len(all_images)} total Mapillary images:")
+            print(f"- Unique sequences: {all_images['sequence'].nunique()}")
+
+            if 'quality_score' in all_images.columns:
+                print(f"- Average quality score: {all_images['quality_score'].mean():.2f}")
+
+            print(f"- Images with compass angle: {all_images['compass_angle'].notna().sum()}")
+
+            if 'computed_compass_angle' in all_images.columns:
+                print(f"- Images with computed compass: {all_images['computed_compass_angle'].notna().sum()}")
 
             # Filter out existing images
             if not all_images.empty:
                 new_images = all_images[~all_images['mly_id'].isin(existing_data.keys())]
-                print(f"Of which {len(new_images)} are new images")
+                print(f"\nFound {len(new_images)} new images to process")
 
                 if len(new_images) > 0:
                     print("\nSample of new Mapillary data:")
-                    print(new_images[['altitude', 'image_url', 'geometry']].head())
+                    sample_cols = ['altitude', 'compass_angle', 'image_url']
+                    if 'quality_score' in new_images.columns:
+                        sample_cols.append('quality_score')
+                    print(new_images[sample_cols].head())
 
-                    # Test image download
-                    print("\nTesting image download...")
+                    # Process images for database
                     processed_images = []
-
                     for _, row in new_images.iterrows():
                         try:
                             image_data = {
@@ -220,18 +246,19 @@ def test_mapillary_images():
                             print(f"Error processing image {row.get('mly_id', 'unknown')}: {str(e)}")
                             continue
 
-                    # Create new DataFrame with processed images
                     if processed_images:
                         new_images = pd.DataFrame(processed_images)
 
                         # Remove columns not in schema
                         schema_columns = [
-                            'name', 'mly_id', 'altitude', 'camera_type', 'camera_parameters',
-                            'captured_at', 'compass_angle', 'computed_compass_angle',
-                            'computed_geometry', 'exif_orientation', 'image_url', 'thumb_url',
+                            'name', 'mly_id', 'altitude', 'camera_type',
+                            'camera_parameters', 'captured_at', 'compass_angle',
+                            'computed_compass_angle', 'computed_geometry',
+                            'exif_orientation', 'image_url', 'thumb_url',
                             'geometry'
                         ]
-                        extra_columns = [col for col in new_images.columns if col not in schema_columns]
+                        extra_columns = [col for col in new_images.columns
+                                       if col not in schema_columns]
                         if extra_columns:
                             new_images = new_images.drop(columns=extra_columns)
 
@@ -239,7 +266,10 @@ def test_mapillary_images():
 
                         # Ensure GeoDataFrame for database operations
                         if not isinstance(new_images, gpd.GeoDataFrame):
-                            new_images = gpd.GeoDataFrame(new_images, geometry='geometry')
+                            new_images = gpd.GeoDataFrame(
+                                new_images,
+                                geometry='geometry'
+                            )
                             new_images.set_crs(epsg=4326, inplace=True)
 
                         return new_images
@@ -254,7 +284,7 @@ def test_mapillary_images():
             return None
 
     except Exception as e:
-        print(f"Error fetching Mapillary images: {str(e)}")
+        print(f"Error fetching Mapillary images: {e}")
         return None
 
 def test_road_network_snapping(images):
