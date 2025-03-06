@@ -14,15 +14,29 @@ from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 from landlens_db.handlers.cloud import Mapillary
 from landlens_db.handlers.image import Local
 
-def get_existing_mapillary_ids(db_con, table_name):
-    """Get existing Mapillary IDs from the database."""
+def get_existing_mapillary_data(db_con, table_name):
+    """Get existing Mapillary data (IDs and image paths) from the database."""
     try:
-        query = text("SELECT mly_id FROM mapillary_images WHERE mly_id IS NOT NULL")
-        existing_ids = pd.read_sql(query, db_con.engine)
-        return set(existing_ids['mly_id']) if not existing_ids.empty else set()
+        # Query both IDs and image paths
+        query = text(f"""
+        SELECT mly_id, image_url
+        FROM {table_name}
+        WHERE mly_id IS NOT NULL
+        AND image_url IS NOT NULL
+        """)
+        existing_data = pd.read_sql(query, db_con.engine)
+        
+        # Create a mapping of IDs to existing file paths
+        existing_map = {}
+        if not existing_data.empty:
+            for _, row in existing_data.iterrows():
+                if os.path.exists(row['image_url']):
+                    existing_map[row['mly_id']] = row['image_url']
+                    
+        return existing_map
     except Exception as e:
-        print(f"Error fetching existing Mapillary IDs: {str(e)}")
-        return set()
+        print(f"Error fetching existing Mapillary data: {str(e)}")
+        return {}
 
 def ensure_table_schema(db_con, table_name):
     """Ensure the table has the correct schema for both local and Mapillary images."""
@@ -149,20 +163,45 @@ def test_mapillary_images():
         # Ensure table schema
         ensure_table_schema(db_con, table_name)
         
-        # Get existing Mapillary IDs from database
-        existing_ids = get_existing_mapillary_ids(db_con, table_name)
-        print(f"Found {len(existing_ids)} existing Mapillary images in database")
+        # Get existing Mapillary data from database
+        existing_data = get_existing_mapillary_data(db_con, table_name)
+        print(f"Found {len(existing_data)} existing Mapillary images in database")
         
-        # Load images from Mapillary
-        fields = ["id", "altitude", "captured_at", "camera_type", "thumb_1024_url",
-                 "compass_angle", "computed_compass_angle", "computed_geometry", "geometry"]
+        # Load images from Mapillary with enhanced fields
+        fields = [
+            "id", "altitude", "captured_at", "camera_type", "thumb_1024_url",
+            "compass_angle", "computed_compass_angle", "computed_geometry", "geometry",
+            "sequence", "quality_score"
+        ]
         all_images = handler.fetch_within_bbox(bbox, fields=fields)
         
         if len(all_images) > 0:
             # Filter out existing images
-            new_images = all_images[~all_images['mly_id'].isin(existing_ids)]
+            new_images = all_images[~all_images['mly_id'].isin(existing_data.keys())]
+            
             print(f"Found {len(all_images)} total Mapillary images")
             print(f"Of which {len(new_images)} are new images")
+            
+            # Handle duplicate sequences
+            if len(new_images) > 0:
+                # Group by sequence and get highest quality image from each sequence
+                if 'sequence' in new_images.columns:
+                    sequence_counts = new_images['sequence'].value_counts()
+                    duplicates = sequence_counts[sequence_counts > 1]
+                    
+                    if not duplicates.empty:
+                        print("\nFiltering duplicate sequences...")
+                        print(f"Before filtering: {len(new_images)} images")
+                        
+                        # Sort by quality_score if available, otherwise use computed_compass_angle as a proxy
+                        sort_column = 'quality_score' if 'quality_score' in new_images.columns else 'computed_compass_angle'
+                        new_images = new_images.sort_values(sort_column, ascending=False)
+                        
+                        # Keep only the highest quality image from each sequence
+                        new_images = new_images.drop_duplicates(subset=['sequence'], keep='first')
+                        
+                        print(f"After filtering: {len(new_images)} images")
+                        print("Kept highest quality image from each sequence")
             
             if len(new_images) > 0:
                 # Prepare data for database
@@ -172,28 +211,102 @@ def test_mapillary_images():
                 print("\nSample of new Mapillary data:")
                 print(new_images[['altitude', 'image_url', 'geometry']].head())
                 
-                # Test image download only for new images
+                # Initialize download and thumbnail directories
                 print("\nTesting image download...")
                 download_dir = os.getenv('DOWNLOAD_DIR')
                 if not os.path.exists(download_dir):
                     os.makedirs(download_dir)
+                thumbnail_dir = os.path.join(download_dir, 'thumbnails')
+                if not os.path.exists(thumbnail_dir):
+                    os.makedirs(thumbnail_dir)
                 
-                # Download first new image if not already downloaded
-                first_image = new_images.iloc[0]
-                image_path = os.path.join(download_dir, f"mly_{first_image['mly_id']}.jpg")
-                if not os.path.exists(image_path):
-                    response = requests.get(first_image['image_url'])
-                    if response.status_code == 200:
-                        with open(image_path, 'wb') as f:
-                            f.write(response.content)
-                        print("Successfully downloaded test image")
-                    else:
-                        print("Failed to download test image")
-                else:
-                    print("Test image already exists")
+                # Process new images and download if needed
+                processed_images = []
+                download_errors = []
                 
-                # Return only new images for database operations
-                return new_images
+                for _, image in new_images.iterrows():
+                    image_path = os.path.join(download_dir, f"mly_{image['mly_id']}.jpg")
+                    image_data = image.copy()
+                    
+                    # Only download if image doesn't exist locally
+                    if not os.path.exists(image_path):
+                        try:
+                            response = requests.get(image['image_url'], timeout=10)
+                            response.raise_for_status()  # Raise exception for bad status codes
+                            
+                            with open(image_path, 'wb') as f:
+                                f.write(response.content)
+                            print(f"Successfully downloaded image {image['mly_id']}")
+                            
+                        except requests.exceptions.RequestException as e:
+                            download_errors.append(f"Failed to download {image['mly_id']}: {str(e)}")
+                            continue
+                        except Exception as e:
+                            download_errors.append(f"Error processing {image['mly_id']}: {str(e)}")
+                            continue
+                    
+                    # Update image URLs and create thumbnail
+                    image_data['image_url'] = image_path
+                    try:
+                        thumb_path = os.path.join(download_dir, 'thumbnails', f"thumb_mly_{image['mly_id']}.jpg")
+                        if not os.path.exists(thumb_path):
+                            thumb_path = Local.create_thumbnail(image_path, size=(800, 800))
+                        image_data['thumb_url'] = thumb_path
+                    except Exception as e:
+                        print(f"Warning: Could not create thumbnail for {image['mly_id']}: {str(e)}")
+                        image_data['thumb_url'] = image_data['image_url']
+                    
+                    # Ensure all required columns exist with proper types
+                    image_data['camera_type'] = image_data.get('camera_type', 'mapillary')
+                    image_data['camera_parameters'] = None  # Mapillary doesn't provide this
+                    image_data['exif_orientation'] = None
+                    
+                    # Convert numeric fields
+                    for field in ['altitude', 'compass_angle', 'computed_compass_angle']:
+                        if field in image_data:
+                            try:
+                                image_data[field] = float(image_data[field])
+                            except (ValueError, TypeError):
+                                image_data[field] = None
+                    
+                    # Ensure datetime format
+                    if 'captured_at' in image_data:
+                        try:
+                            image_data['captured_at'] = pd.to_datetime(image_data['captured_at'], utc=True)
+                        except (ValueError, TypeError):
+                            image_data['captured_at'] = None
+                            
+                    processed_images.append(image_data)
+                
+                # Report any download errors
+                if download_errors:
+                    print("\nDownload Errors:")
+                    for error in download_errors:
+                        print(error)
+                
+                # Create new DataFrame with processed images
+                if processed_images:
+                    new_images = pd.DataFrame(processed_images)
+                    
+                    # Remove columns not in schema
+                    schema_columns = [
+                        'name', 'mly_id', 'altitude', 'camera_type', 'camera_parameters',
+                        'captured_at', 'compass_angle', 'computed_compass_angle',
+                        'computed_geometry', 'exif_orientation', 'image_url', 'thumb_url',
+                        'geometry'
+                    ]
+                    extra_columns = [col for col in new_images.columns if col not in schema_columns]
+                    if extra_columns:
+                        new_images = new_images.drop(columns=extra_columns)
+                        
+                    print(f"\nSuccessfully processed {len(processed_images)} images")
+                    
+                    # Ensure GeoDataFrame for database operations
+                    if not isinstance(new_images, gpd.GeoDataFrame):
+                        new_images = gpd.GeoDataFrame(new_images, geometry='geometry')
+                        new_images.set_crs(epsg=4326, inplace=True)
+                    
+                    return new_images
             else:
                 print("No new images to download")
                 return None
