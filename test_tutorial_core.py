@@ -13,6 +13,8 @@ from landlens_db.handlers.db import Postgres
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 from landlens_db.handlers.cloud import Mapillary
 from landlens_db.handlers.image import Local
+from landlens_db.process.road_network import get_osm_lines, optimize_network_for_snapping, validate_network_topology
+from landlens_db.process.snap import snap_to_road_network
 
 def get_existing_mapillary_data(db_con, table_name):
     """Get existing Mapillary data (IDs and image paths) from the database."""
@@ -318,6 +320,59 @@ def test_mapillary_images():
         print(f"Error fetching Mapillary images: {str(e)}")
         return None
 
+def test_road_network_snapping(images):
+    print("\nTesting road network snapping...")
+    try:
+        # Get the bounding box coordinates
+        bbox = images['geometry'].total_bounds
+        
+        # Create cache directory
+        cache_dir = os.path.join(os.path.dirname(__file__), "test_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        
+        # Download the road network using enhanced functions
+        network = get_osm_lines(
+            bbox, 
+            network_type='drive',
+            cache_dir=cache_dir
+        )
+        print("Successfully downloaded road network")
+        
+        # Optimize and validate network
+        network = optimize_network_for_snapping(network)
+        network, report = validate_network_topology(network)
+        
+        if report['issues']:
+            print("Network validation report:")
+            for issue in report['issues']:
+                print(f"- {issue}")
+            for repair in report['repairs']:
+                print(f"- {repair}")
+        
+        # Snap images to road network
+        snap_to_road_network(
+            images, 
+            tolerance=100,
+            network=network,
+            realign_camera=True
+        )
+        print("Successfully snapped images to road network")
+        
+        # Print statistics
+        total_images = len(images)
+        snapped_images = images['snapped_geometry'].notna().sum()
+        print(f"\nSnapping statistics:")
+        print(f"- Total images: {total_images}")
+        print(f"- Successfully snapped: {snapped_images}")
+        print(f"- Failed to snap: {total_images - snapped_images}")
+        
+        print("\nSample data with snapped geometry:")
+        print(images[['name', 'geometry', 'snapped_geometry', 'snapped_angle']].head())
+        
+    except Exception as e:
+        print(f"Error in road network snapping: {e}")
+        raise
+
 def test_database_operations(images):
     if images is None or len(images) == 0:
         print("\nNo new images to save to database")
@@ -400,6 +455,15 @@ def main():
     
     # Test Mapillary image loading and downloading
     mapillary_images = test_mapillary_images()
+    
+    # Test road network snapping
+    if local_images is not None:
+        test_road_network_snapping(local_images)
+    
+    # Test road network snapping with Mapillary images if available
+    if mapillary_images is not None and len(mapillary_images) > 0:
+        print("\nTesting road network snapping with Mapillary images...")
+        test_road_network_snapping(mapillary_images)
     
     # Test database operations with local images
     if local_images is not None:
