@@ -1,6 +1,8 @@
+import math
 import warnings
 from datetime import datetime, timezone
 
+import mapbox_vector_tile
 import pyogrio
 import pytz
 import requests
@@ -24,7 +26,7 @@ class Mapillary:
     """
 
     BASE_URL = "https://graph.mapillary.com"
-    HEADERS_TEMPLATE = {"Authorization": "{}"}
+    TILES_URL = "https://tiles.mapillary.com"
     REQUIRED_FIELDS = ["id", "geometry"]
     FIELDS_LIST = [
         "id",
@@ -64,6 +66,7 @@ class Mapillary:
     ]
     LIMIT = 2000
     TF = TimezoneFinder()
+    ZOOM_LEVEL = 14  # Default zoom level for coverage tiles
 
     def __init__(self, mapillary_token):
         """
@@ -73,8 +76,6 @@ class Mapillary:
             mapillary_token (str): The authentication token for Mapillary.
         """
         self.TOKEN = mapillary_token
-        self.headers = self.HEADERS_TEMPLATE.copy()
-        self.headers["Authorization"] = self.headers["Authorization"].format(self.TOKEN)
 
     def _validate_fields(self, fields):
         """
@@ -189,73 +190,326 @@ class Mapillary:
 
         return gdf
 
-    def _recursive_fetch(
-        self,
-        bbox,
-        fields,
-        start_timestamp=None,
-        end_timestamp=None,
-        current_depth=0,
-        max_recursion_depth=None,
-    ):
+    def _bbox_to_tile_coords(self, bbox, zoom):
         """
-        Recursively fetches images within a bounding box, considering timestamps.
+        Convert a bounding box to tile coordinates at a given zoom level.
 
         Args:
-            bbox (list): The bounding box to fetch images from.
-            fields (list): The fields to include in the response.
-            start_timestamp (str, optional): The starting timestamp for filtering images.
-            end_timestamp (str, optional): The ending timestamp for filtering images.
-            current_depth (int, optional): Current depth of recursion.
-            max_recursion_depth (int, optional): Maximum depth of recursion.
+            bbox (list): [west, south, east, north] coordinates
+            zoom (int): Zoom level
 
         Returns:
-            list: A list of image data.
+            tuple: (min_x, min_y, max_x, max_y) tile coordinates
+        """
+        def lat_to_tile_y(lat_deg, zoom):
+            lat_rad = math.radians(lat_deg)
+            n = 2.0 ** zoom
+            return int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+
+        def lon_to_tile_x(lon_deg, zoom):
+            n = 2.0 ** zoom
+            return int((lon_deg + 180.0) / 360.0 * n)
+
+        west, south, east, north = bbox
+        min_x = lon_to_tile_x(west, zoom)
+        max_x = lon_to_tile_x(east, zoom)
+        min_y = lat_to_tile_y(north, zoom)  # Note: y coordinates are inverted
+        max_y = lat_to_tile_y(south, zoom)
+
+        return min_x, min_y, max_x, max_y
+
+    def _tile_to_bbox(self, tile, zoom_level):
+        """
+        Converts tile coordinates to a bounding box.
+
+        Args:
+            tile (dict): Tile coordinates (x, y).
+            zoom_level (int): The zoom level of the tile.
+
+        Returns:
+            list: Bounding box coordinates [west, south, east, north].
+        """
+        x, y = tile['x'], tile['y']
+        n = 2.0 ** zoom_level
+        west = x / n * 360.0 - 180.0
+        east = (x + 1) / n * 360.0 - 180.0
+
+        def inv_lat(y_tile):
+            return math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y_tile / n))))
+
+        north = inv_lat(y)
+        south = inv_lat(y + 1)
+
+        return [west, south, east, north]
+
+    def _fetch_coverage_tile(self, zoom, x, y):
+        """
+        Fetches a single coverage tile.
+
+        Args:
+            zoom (int): Zoom level
+            x (int): Tile X coordinate
+            y (int): Tile Y coordinate
+
+        Returns:
+            list: Image features from the tile
+        """
+        url = (
+            f"{self.TILES_URL}/maps/vtp/mly1_public/2"
+            f"/{zoom}/{x}/{y}"
+            f"?access_token={self.TOKEN}"
+        )
+
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                # Vector tiles are binary, not JSON
+                if 'application/x-protobuf' in response.headers.get('content-type', ''):
+                    try:
+                        # Decode the vector tile
+                        tile_data = mapbox_vector_tile.decode(response.content)
+
+                        # Check for image layer at zoom level 14
+                        if 'image' in tile_data and zoom == 14:
+                            return tile_data['image']['features']
+
+                        # Check for sequence layer at zoom levels 6-14
+                        elif 'sequence' in tile_data and 6 <= zoom <= 14:
+                            return tile_data['sequence']['features']
+
+                        # Check for overview layer at zoom levels 0-5
+                        elif 'overview' in tile_data and 0 <= zoom <= 5:
+                            return tile_data['overview']['features']
+
+                        else:
+                            warnings.warn(f"No usable layers found in tile {x},{y}")
+                            return []
+
+                    except Exception as e:
+                        warnings.warn(f"Error decoding vector tile {x},{y}: {str(e)}")
+                        return []
+                else:
+                    warnings.warn(f"Unexpected content type for tile {x},{y}")
+                    return []
+            else:
+                warnings.warn(f"Error fetching tile {x},{y}: {response.status_code}")
+                return []
+        except Exception as e:
+            warnings.warn(f"Exception fetching tile {x},{y}: {str(e)}")
+            return []
+
+    def _extract_image_ids_from_features(self, features):
+        """
+        Extracts image IDs from tile features.
+
+        Args:
+            features (list): List of features from a vector tile
+
+        Returns:
+            list: List of image IDs
+        """
+        image_ids = []
+
+        for feature in features:
+            if 'id' in feature.get('properties', {}):
+                image_ids.append(str(feature['properties']['id']))
+            elif 'image_id' in feature.get('properties', {}):
+                image_ids.append(str(feature['properties']['image_id']))
+
+        return image_ids
+
+    def _fetch_image_metadata(self, image_ids, fields):
+        """
+        Fetches metadata for multiple images.
+
+        Args:
+            image_ids (list): List of image IDs
+            fields (list): Fields to include in the response
+
+        Returns:
+            list: List of image metadata
+        """
+        results = []
+
+        # Process in batches to avoid too many requests
+        batch_size = 50
+        for i in range(0, len(image_ids), batch_size):
+            batch = image_ids[i:i+batch_size]
+
+            for image_id in batch:
+                url = (
+                    f"{self.BASE_URL}/{image_id}"
+                    f"?access_token={self.TOKEN}"
+                    f"&fields={','.join(fields)}"
+                )
+
+                try:
+                    response = requests.get(url)
+                    if response.status_code == 200:
+                        results.append(response.json())
+                    else:
+                        warnings.warn(f"Error fetching image {image_id}: {response.status_code}")
+                except Exception as e:
+                    warnings.warn(f"Exception fetching image {image_id}: {str(e)}")
+
+        return results
+
+    def fetch_within_bbox(
+        self,
+        initial_bbox,
+        start_date=None,
+        end_date=None,
+        fields=None,
+        max_recursion_depth=25,
+        use_coverage_tiles=True,
+        max_images=5000
+    ):
+        """
+        Fetches images within a bounding box.
+
+        Args:
+            initial_bbox (list): The bounding box to fetch images from [west, south, east, north].
+            start_date (str, optional): Start date for filtering images (YYYY-MM-DD).
+            end_date (str, optional): End date for filtering images (YYYY-MM-DD).
+            fields (list, optional): Fields to include in the response.
+            max_recursion_depth (int, optional): Maximum depth for recursive fetching.
+            use_coverage_tiles (bool, optional): Whether to use coverage tiles API for large areas.
+            max_images (int, optional): Maximum number of images to process. Default is 5000.
+
+        Returns:
+            GeoDataFrame: A GeoDataFrame containing the image data.
+        """
+        if fields is None:
+            fields = self.FIELDS_LIST
+
+        # Ensure required fields are included
+        if "id" not in fields:
+            fields.append("id")
+        if "geometry" not in fields:
+            fields.append("geometry")
+        if not any(url_key in fields for url_key in self.IMAGE_URL_KEYS):
+            fields.append("thumb_1024_url")
+
+        start_timestamp = self._get_timestamp(start_date) if start_date else None
+        end_timestamp = self._get_timestamp(end_date, True) if end_date else None
+
+        if use_coverage_tiles:
+            # Get coverage tiles for the area
+            min_x, min_y, max_x, max_y = self._bbox_to_tile_coords(initial_bbox, self.ZOOM_LEVEL)
+
+            all_image_ids = []
+            print(f"Fetching {(max_x - min_x + 1) * (max_y - min_y + 1)} tiles...")
+
+            # Fetch all tiles in the bounding box
+            for x in range(min_x, max_x + 1):
+                for y in range(min_y, max_y + 1):
+                    features = self._fetch_coverage_tile(self.ZOOM_LEVEL, x, y)
+                    image_ids = self._extract_image_ids_from_features(features)
+                    all_image_ids.extend(image_ids)
+
+                    # Check if we've reached the maximum number of images
+                    if len(all_image_ids) >= max_images * 2:  # Get more than needed to allow for filtering
+                        print(f"Reached maximum number of images ({max_images}), stopping tile fetching")
+                        break
+
+                # Check again after processing a row of tiles
+                if len(all_image_ids) >= max_images * 2:
+                    break
+
+            print(f"Found {len(all_image_ids)} total images")
+
+            # Remove duplicates
+            all_image_ids = list(set(all_image_ids))
+            print(f"After removing duplicates: {len(all_image_ids)} unique images")
+
+            # Limit the number of images to process
+            if len(all_image_ids) > max_images:
+                print(f"Limiting to {max_images} images for processing")
+                all_image_ids = all_image_ids[:max_images]
+
+            # Fetch metadata for all images
+            all_data = self._fetch_image_metadata(all_image_ids, fields)
+
+            return self._json_to_gdf(all_data)
+        else:
+            # Use traditional recursive fetching
+            data = self._recursive_fetch(
+                initial_bbox,
+                fields,
+                start_timestamp,
+                end_timestamp,
+                max_recursion_depth=max_recursion_depth
+            )
+            return self._json_to_gdf(data)
+
+    def fetch_by_id(self, image_id, fields=None):
+        """
+        Fetches an image by its ID.
+
+        Args:
+            image_id (str): The ID of the image to fetch.
+            fields (list, optional): The fields to include in the response.
+
+        Returns:
+            GeoImageFrame: A GeoImageFrame containing the fetched image.
 
         Raises:
             Exception: If the connection to Mapillary API fails.
         """
-        if max_recursion_depth is not None and current_depth > max_recursion_depth:
-            warnings.warn(
-                "Warning: Max recursion depth reached. Consider splitting requests across smaller multiple date ranges."
-            )
-            return []
-
+        if fields is None:
+            fields = self.FIELDS_LIST
+        else:
+            self._validate_fields(fields)
         url = (
-            f"{self.BASE_URL}/images?access_token={self.TOKEN}"
-            f"&fields={','.join(fields)}&bbox={','.join(str(i) for i in bbox)}"
-            f"&limit={self.LIMIT}"
+            f"{self.BASE_URL}/{image_id}"
+            f"?access_token={self.TOKEN}"
+            f"&fields={','.join(fields)}"
         )
-
-        if start_timestamp:
-            url += f"&start_captured_at={start_timestamp}"
-        if end_timestamp:
-            url += f"&end_captured_at={end_timestamp}"
-
-        response = requests.get(url, headers=self.headers)
+        response = requests.get(url)
         if response.status_code != 200:
             raise Exception(
-                f"There was an error connecting to the Mapillary API. Exception: {response.text}"
+                f"Error connecting to Mapillary API. Exception: {response.text}"
             )
+        data = self._json_to_gdf([response.json()])
+        return GeoImageFrame(data, geometry="geometry")
 
+    def fetch_by_sequence(self, sequence_ids, fields=None):
+        """
+        Fetches images by their sequence IDs.
+
+        Args:
+            sequence_ids (list): The sequence IDs to fetch images from.
+            fields (list, optional): The fields to include in the response.
+
+        Returns:
+            GeoImageFrame: A GeoImageFrame containing the fetched images.
+
+        Raises:
+            Exception: If the connection to Mapillary API fails.
+        """
+        if fields is None:
+            fields = self.FIELDS_LIST
+        else:
+            self._validate_fields(fields)
+        url = (
+            f"{self.BASE_URL}/images"
+            f"?access_token={self.TOKEN}"
+            f"&sequence_ids={','.join(sequence_ids)}"
+            f"&fields={','.join(fields)}"
+        )
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise Exception(
+                f"Error connecting to Mapillary API. Exception: {response.text}"
+            )
         response_data = response.json().get("data")
         if len(response_data) == self.LIMIT:
-            child_bboxes = self._split_bbox(bbox)
-            data = []
-            for child_bbox in child_bboxes:
-                data.extend(
-                    self._recursive_fetch(
-                        child_bbox,
-                        fields,
-                        start_timestamp,
-                        end_timestamp,
-                        current_depth=current_depth + 1,
-                        max_recursion_depth=max_recursion_depth,
-                    )
-                )
-            return data
-        else:
-            return response_data
+            raise Exception(
+                "Data count reached the limit. Please provide fewer sequence IDs."
+            )
+
+        data = self._json_to_gdf(response_data)
+        return GeoImageFrame(data, geometry="geometry")
 
     @staticmethod
     def _get_timestamp(date_string, end_of_day=False):
@@ -310,115 +564,72 @@ class Mapillary:
         else:
             return dt_utc.isoformat()
 
-    def fetch_within_bbox(
+    def _recursive_fetch(
         self,
-        initial_bbox,
-        start_date=None,
-        end_date=None,
-        fields=None,
-        max_recursion_depth=25,
+        bbox,
+        fields,
+        start_timestamp=None,
+        end_timestamp=None,
+        current_depth=0,
+        max_recursion_depth=None,
     ):
         """
-        Fetches images within a bounding box, with intelligent duplicate handling.
+        Recursively fetches images within a bounding box, considering timestamps.
 
         Args:
-            initial_bbox (list): The initial bounding box coordinates [min_lon, min_lat, max_lon, max_lat].
-            start_date (str, optional): The starting date for filtering images (YYYY-MM-DD format).
-            end_date (str, optional): The ending date for filtering images (YYYY-MM-DD format).
-            fields (list, optional): The fields to include in the response. Defaults to all available fields.
-            max_recursion_depth (int, optional): Maximum depth of recursion for large areas.
+            bbox (list): The bounding box to fetch images from.
+            fields (list): The fields to include in the response.
+            start_timestamp (str, optional): The starting timestamp for filtering images.
+            end_timestamp (str, optional): The ending timestamp for filtering images.
+            current_depth (int, optional): Current depth of recursion.
+            max_recursion_depth (int, optional): Maximum depth of recursion.
 
         Returns:
-            GeoImageFrame: A GeoImageFrame containing the fetched images. The results are automatically
-            filtered to keep only the highest quality image from each sequence based on:
-            1. quality_score - If available, primary indicator of image quality
-            2. computed_compass_angle - Secondary indicator for positional accuracy
-            3. atomic_scale - Tertiary indicator for image resolution/quality
-
-            This ensures optimal data quality while minimizing redundancy in the dataset.
-
-        Note:
-            When fetching from areas with many images, the method automatically handles pagination
-            and area subdivision to ensure complete coverage. For sequence-based operations,
-            consider using fetch_by_sequence() instead.
-        """
-        if fields is None:
-            fields = self.FIELDS_LIST
-        else:
-            self._validate_fields(fields)
-        start_timestamp = self._get_timestamp(start_date)
-        end_timestamp = self._get_timestamp(end_date, end_of_day=True)
-        # Fetch raw data from Mapillary API
-        images = self._recursive_fetch(
-            initial_bbox,
-            fields,
-            start_timestamp,
-            end_timestamp,
-            max_recursion_depth=max_recursion_depth,
-        )
-
-        # Convert to GeoDataFrame with automatic duplicate handling
-        data = self._json_to_gdf(images)
-
-        # Convert to GeoImageFrame for additional functionality
-        return GeoImageFrame(data, geometry="geometry")
-
-    def fetch_by_id(self, image_id, fields=None):
-        """
-        Fetches an image by its ID.
-
-        Args:
-            image_id (str): The ID of the image to fetch.
-            fields (list, optional): The fields to include in the response.
-
-        Returns:
-            GeoImageFrame: A GeoImageFrame containing the fetched image.
+            list: A list of image data.
 
         Raises:
             Exception: If the connection to Mapillary API fails.
         """
-        if fields is None:
-            fields = self.FIELDS_LIST
-        else:
-            self._validate_fields(fields)
-        url = f"{self.BASE_URL}/{image_id}?fields={','.join(fields)}"
-        response = requests.get(url, headers=self.headers)
+        if max_recursion_depth is not None and current_depth > max_recursion_depth:
+            warnings.warn(
+                "Max recursion depth reached. Consider splitting requests."
+            )
+            return []
+
+        url = (
+            f"{self.BASE_URL}/images"
+            f"?access_token={self.TOKEN}"
+            f"&fields={','.join(fields)}"
+            f"&bbox={','.join(str(i) for i in bbox)}"
+            f"&limit={self.LIMIT}"
+        )
+
+        if start_timestamp:
+            url += f"&start_captured_at={start_timestamp}"
+        if end_timestamp:
+            url += f"&end_captured_at={end_timestamp}"
+
+        response = requests.get(url)
         if response.status_code != 200:
             raise Exception(
-                f"There was an error connecting to the Mapillary API. Exception: {response.text}"
+                f"Error connecting to Mapillary API. Exception: {response.text}"
             )
-        data = self._json_to_gdf([response.json()])
-        return GeoImageFrame(data, geometry="geometry")
 
-    def fetch_by_sequence(self, sequence_ids, fields=None):
-        """
-        Fetches images by their sequence IDs.
-
-        Args:
-            sequence_ids (list): The sequence IDs to fetch images from.
-            fields (list, optional): The fields to include in the response.
-
-        Returns:
-            GeoImageFrame: A GeoImageFrame containing the fetched images.
-
-        Raises:
-            Exception: If the connection to Mapillary API fails or the data count exceeds the limit.
-        """
-        if fields is None:
-            fields = self.FIELDS_LIST
-        else:
-            self._validate_fields(fields)
-        url = f"{self.BASE_URL}/images?sequence_ids={','.join(sequence_ids)}&fields={','.join(fields)}"
-        response = requests.get(url, headers=self.headers)
-        if response.status_code != 200:
-            raise Exception(
-                f"There was an error connecting to the Mapillary API. Exception: {response.text}"
-            )
         response_data = response.json().get("data")
         if len(response_data) == self.LIMIT:
-            raise Exception(
-                "Data count reached the Mapillary limit. Please provide a fewer sequence IDs."
-            )
-
-        data = self._json_to_gdf(response_data)
-        return GeoImageFrame(data, geometry="geometry")
+            child_bboxes = self._split_bbox(bbox)
+            data = []
+            for child_bbox in child_bboxes:
+                data.extend(
+                    self._recursive_fetch(
+                        child_bbox,
+                        fields,
+                        start_timestamp,
+                        end_timestamp,
+                        current_depth=current_depth + 1,
+                        max_recursion_depth=max_recursion_depth,
+                    )
+                )
+            return data
+        else:
+            return response_data
