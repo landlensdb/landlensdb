@@ -1,5 +1,6 @@
 import math
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import mapbox_vector_tile
@@ -9,6 +10,7 @@ import requests
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 from timezonefinder import TimezoneFinder
+from tqdm import tqdm
 
 from landlens_db.geoclasses.geoimageframe import GeoImageFrame
 
@@ -156,10 +158,18 @@ class Mapillary:
                 )
 
             # Set image URL from available options
+            image_url_found = False
             for key in self.IMAGE_URL_KEYS:
                 if key in img:
-                    img["image_url"] = img.pop(key)
+                    img["image_url"] = str(img.pop(key))  # Explicitly convert to string
+                    image_url_found = True
                     break
+
+            # If no image URL was found, set a placeholder URL
+            # Instead of using a direct Mapillary API URL that might fail,
+            # we'll use a placeholder that indicates the image URL is missing
+            if not image_url_found:
+                img["image_url"] = f"placeholder://mapillary/{img['mly_id']}"
 
             # Convert list parameters to strings
             for key in ["camera_parameters", "computed_rotation"]:
@@ -187,6 +197,10 @@ class Mapillary:
             if sort_columns:
                 gdf = gdf.sort_values(sort_columns, ascending=False)
                 gdf = gdf.drop_duplicates(subset=['sequence'], keep='first')
+
+        # Ensure image_url is a string type
+        if "image_url" in gdf.columns:
+            gdf["image_url"] = gdf["image_url"].astype(str)
 
         return gdf
 
@@ -318,39 +332,51 @@ class Mapillary:
 
         return image_ids
 
-    def _fetch_image_metadata(self, image_ids, fields):
+    def _fetch_image_metadata(self, image_ids, fields, max_workers=10):
         """
-        Fetches metadata for multiple images.
+        Fetches metadata for multiple images using multi-threading.
 
         Args:
             image_ids (list): List of image IDs
             fields (list): Fields to include in the response
+            max_workers (int, optional): Maximum number of concurrent workers. Default is 10.
 
         Returns:
             list: List of image metadata
         """
         results = []
 
-        # Process in batches to avoid too many requests
-        batch_size = 50
-        for i in range(0, len(image_ids), batch_size):
-            batch = image_ids[i:i+batch_size]
+        def fetch_single_image(image_id):
+            url = (
+                f"{self.BASE_URL}/{image_id}"
+                f"?access_token={self.TOKEN}"
+                f"&fields={','.join(fields)}"
+            )
 
-            for image_id in batch:
-                url = (
-                    f"{self.BASE_URL}/{image_id}"
-                    f"?access_token={self.TOKEN}"
-                    f"&fields={','.join(fields)}"
-                )
+            try:
+                response = requests.get(url)
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    warnings.warn(f"Error fetching image {image_id}: {response.status_code}")
+                    return None
+            except Exception as e:
+                warnings.warn(f"Exception fetching image {image_id}: {str(e)}")
+                return None
 
-                try:
-                    response = requests.get(url)
-                    if response.status_code == 200:
-                        results.append(response.json())
-                    else:
-                        warnings.warn(f"Error fetching image {image_id}: {response.status_code}")
-                except Exception as e:
-                    warnings.warn(f"Exception fetching image {image_id}: {str(e)}")
+        # Use ThreadPoolExecutor for parallel fetching
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks and create a map of future to image_id
+            future_to_id = {executor.submit(fetch_single_image, image_id): image_id
+                           for image_id in image_ids}
+
+            # Process results as they complete with a progress bar
+            for future in tqdm(as_completed(future_to_id),
+                              total=len(image_ids),
+                              desc="Fetching metadata"):
+                result = future.result()
+                if result:
+                    results.append(result)
 
         return results
 
@@ -362,7 +388,8 @@ class Mapillary:
         fields=None,
         max_recursion_depth=25,
         use_coverage_tiles=True,
-        max_images=5000
+        max_images=5000,
+        max_workers=10
     ):
         """
         Fetches images within a bounding box.
@@ -375,9 +402,10 @@ class Mapillary:
             max_recursion_depth (int, optional): Maximum depth for recursive fetching.
             use_coverage_tiles (bool, optional): Whether to use coverage tiles API for large areas.
             max_images (int, optional): Maximum number of images to process. Default is 5000.
+            max_workers (int, optional): Maximum number of concurrent workers. Default is 10.
 
         Returns:
-            GeoDataFrame: A GeoDataFrame containing the image data.
+            GeoImageFrame: A GeoImageFrame containing the image data.
         """
         if fields is None:
             fields = self.FIELDS_LIST
@@ -427,10 +455,11 @@ class Mapillary:
                 print(f"Limiting to {max_images} images for processing")
                 all_image_ids = all_image_ids[:max_images]
 
-            # Fetch metadata for all images
-            all_data = self._fetch_image_metadata(all_image_ids, fields)
+            # Fetch metadata for all images using multi-threading
+            all_data = self._fetch_image_metadata(all_image_ids, fields, max_workers=max_workers)
 
-            return self._json_to_gdf(all_data)
+            data = self._json_to_gdf(all_data)
+            return GeoImageFrame(data, geometry="geometry")
         else:
             # Use traditional recursive fetching
             data = self._recursive_fetch(
@@ -440,7 +469,8 @@ class Mapillary:
                 end_timestamp,
                 max_recursion_depth=max_recursion_depth
             )
-            return self._json_to_gdf(data)
+            gdf = self._json_to_gdf(data)
+            return GeoImageFrame(gdf, geometry="geometry")
 
     def fetch_by_id(self, image_id, fields=None):
         """

@@ -268,6 +268,12 @@ class GeoImageFrame(GeoDataFrame):
         for index, row in gdf_copy.iterrows():
             image_url = row["image_url"]
 
+            # Skip placeholder URLs
+            if image_url.startswith("placeholder://"):
+                print(f"Skipping placeholder URL: {image_url}")
+                continue
+
+            # Skip non-HTTP URLs
             if not image_url.startswith(("http://", "https://")):
                 print(f"Skipping {image_url}. It's not a valid URL.")
                 continue
