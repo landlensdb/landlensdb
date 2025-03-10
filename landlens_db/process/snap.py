@@ -8,6 +8,13 @@ import pandas as pd
 from shapely import Point
 from rtree import index
 
+from .road_network import (
+    get_osm_lines,
+    optimize_network_for_snapping,
+    validate_network_topology,
+    create_network_cache_dir
+)
+
 
 def _create_spatial_index(network):
     """Create a spatial index for the given network using Rtree.
@@ -108,22 +115,6 @@ def create_bbox(point, x_distance_meters, y_distance_meters):
     return bbox
 
 
-def get_osm_lines(bbox, network_type="all_private"):
-    """Retrieve OpenStreetMap lines for a given bounding box.
-
-    Args:
-        bbox (list): Bounding box coordinates [minx, miny, maxx, maxy].
-        network_type (str, optional): The type of network to retrieve. Defaults to "all_private".
-
-    Returns:
-        GeoDataFrame: A GeoDataFrame containing the OSM lines.
-    """
-    minx, miny, maxx, maxy = bbox
-    graph = ox.graph_from_bbox(maxy, miny, minx, maxx, network_type=network_type)
-    network = ox.utils_graph.graph_to_gdfs(graph, nodes=False)
-    return network
-
-
 def align_compass_with_road(points, network):
     """Aligns the compass angle of points with the bearing of the nearest road segment.
 
@@ -163,22 +154,38 @@ def align_compass_with_road(points, network):
     return points
 
 
-def snap_to_road_network(gif, tolerance, network, realign_camera=True):
-    """Snap points to the nearest road network within a given tolerance.
+def snap_to_road_network(gif, tolerance, network=None, bbox=None, network_type="all_private", 
+                        realign_camera=True, cache_dir=None):
+    """Enhanced function to snap points to road network with automatic network fetching.
 
     Args:
-        gif (GeoDataFrame): A GeoDataFrame containing images and their geometries.
-        tolerance (float): The snapping distance in meters.
-        network (GeoDataFrame): A GeoDataFrame containing the road network.
-        realign_camera (bool, optional): If True, realigns the camera angle to match the road. Defaults to True.
+        gif (GeoDataFrame): A GeoDataFrame containing images and their geometries
+        tolerance (float): The snapping distance in meters
+        network (GeoDataFrame, optional): Existing road network to use
+        bbox (list, optional): Bounding box to fetch network for if none provided
+        network_type (str, optional): Type of network to fetch
+        realign_camera (bool, optional): Whether to realign camera angles
+        cache_dir (str, optional): Directory to cache downloaded networks
 
     Returns:
-        GeoDataFrame: A GeoDataFrame with updated snapped geometries.
-
-    Raises:
-        Exception: If the network is missing or invalid.
-        warnings.Warn: If not all images could be snapped, or if realign_camera is set but compass_angle is missing.
+        GeoDataFrame: A GeoDataFrame with updated snapped geometries
     """
+    if network is None and bbox is None:
+        bbox = gif.geometry.total_bounds
+        
+    if network is None:
+        if cache_dir is None:
+            cache_dir = create_network_cache_dir()
+        network = get_osm_lines(bbox, network_type=network_type, cache_dir=cache_dir)
+        
+    # Optimize network for snapping
+    network = optimize_network_for_snapping(network)
+    
+    # Validate network topology
+    network, report = validate_network_topology(network)
+    if report['issues']:
+        warnings.warn(f"Network validation found issues: {report['issues']}")
+    
     points = gif[["image_url", "geometry"]].copy()
     points = points.to_crs(3857)
 

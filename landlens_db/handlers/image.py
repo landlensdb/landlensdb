@@ -93,6 +93,51 @@ class Local:
         return exif_data
 
     @staticmethod
+    def create_thumbnail(image_path, size=(256, 256)):
+        """
+        Creates a thumbnail for the given image while preserving aspect ratio.
+
+        Args:
+            image_path (str): Path to the original image
+            size (tuple): Desired thumbnail size as (width, height). Default is (256, 256)
+
+        Returns:
+            str: Path to the created thumbnail
+
+        Raises:
+            FileNotFoundError: If the image file doesn't exist
+            ValueError: If the image cannot be opened or processed
+        """
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+
+        # Create thumbnails directory in the same directory as the original image
+        original_dir = os.path.dirname(image_path)
+        thumbnail_dir = os.path.join(original_dir, "thumbnails")
+        os.makedirs(thumbnail_dir, exist_ok=True)
+
+        # Generate thumbnail filename
+        original_filename = os.path.basename(image_path)
+        thumbnail_filename = f"thumb_{original_filename}"
+        thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+
+        try:
+            with Image.open(image_path) as img:
+                # Convert to RGB if necessary
+                if img.mode in ('RGBA', 'LA'):
+                    img = img.convert('RGB')
+                
+                # Calculate new dimensions preserving aspect ratio
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                
+                # Save thumbnail
+                img.save(thumbnail_path, "JPEG", quality=85)
+                return thumbnail_path
+
+        except Exception as e:
+            raise ValueError(f"Error creating thumbnail for {image_path}: {str(e)}")
+
+    @staticmethod
     def _to_decimal(coord_tuple):
         """
         Converts coordinates from degrees, minutes, and seconds to decimal.
@@ -247,13 +292,15 @@ class Local:
             return None
 
     @classmethod
-    def load_images(cls, directory, additional_columns=None):
+    def load_images(cls, directory, additional_columns=None, create_thumbnails=True, thumbnail_size=(256, 256)):
         """
         Loads images from a given directory, extracts relevant information, and returns it in a GeoImageFrame.
 
         Args:
             directory (str): Path to the directory containing images.
             additional_columns (list, optional): List of additional column names or tuples containing column name and EXIF tag.
+            create_thumbnails (bool): Whether to create thumbnails for the images. Defaults to True.
+            thumbnail_size (tuple): Size for generated thumbnails as (width, height). Defaults to (256, 256).
 
         Returns:
             GeoImageFrame: Frame containing the data extracted from the images.
@@ -263,12 +310,15 @@ class Local:
 
         Examples:
             >>> directory = "/path/to/images"
-            >>> image_data = Local.load_images(directory)
+            >>> image_data = Local.load_images(directory, create_thumbnails=True)
         """
         tf = TimezoneFinder()
         data = []
         valid_image_count = 0
         for root, dirs, files in os.walk(directory):
+            # Skip thumbnails directory
+            if "thumbnails" in dirs:
+                dirs.remove("thumbnails")
             for file in files:
                 if file.lower().endswith((".png", ".jpg", ".jpeg")):
                     valid_image_count += 1
@@ -321,6 +371,22 @@ class Local:
                     compass_angle = np.float32(cls._get_image_direction(geotags))
                     exif_orientation = np.float32(exif_data.get("Orientation", None))
 
+                    # Generate thumbnail if requested
+                    thumb_url = None
+                    if create_thumbnails:
+                        try:
+                            # Check if thumbnail already exists
+                            thumbnail_dir = os.path.join(os.path.dirname(filepath), "thumbnails")
+                            thumb_filename = f"thumb_{os.path.basename(filepath)}"
+                            thumb_path = os.path.join(thumbnail_dir, thumb_filename)
+                            
+                            if os.path.exists(thumb_path):
+                                thumb_url = thumb_path
+                            else:
+                                thumb_url = cls.create_thumbnail(filepath, size=thumbnail_size)
+                        except Exception as e:
+                            warnings.warn(f"Error creating thumbnail for {filepath}: {str(e)}")
+
                     image_data = {
                         "name": filepath.split("/")[-1],
                         "altitude": altitude,
@@ -330,6 +396,7 @@ class Local:
                         "compass_angle": compass_angle,
                         "exif_orientation": exif_orientation,
                         "image_url": filepath,
+                        "thumb_url": thumb_url,
                         "geometry": geometry,
                     }
 

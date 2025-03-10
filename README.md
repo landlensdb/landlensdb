@@ -14,7 +14,17 @@ PostgreSQL database operations.
 - **PostgreSQL Database Operations**: Handle image-related database operations.
 - **Road Network Alignment**: Align images with road networks.
 
+## Requirements
+
+- Python 3.13.2 or later
+- pip (latest version)
+- virtualenv or venv module
+
+For detailed version requirements of dependencies, see `requirements.txt`.
+
 ## Installation
+
+### Quick Install
 
 Install the package using pip:
 
@@ -22,11 +32,31 @@ Install the package using pip:
 pip install landlens_db
 ```
 
+### Development Setup (Python 3.13)
+
+For development or if you're using Python 3.13, follow these steps:
+
+1. Create and activate a virtual environment:
+   ```bash
+   python3.13 -m venv venv
+   source venv/bin/activate  # On Unix/macOS
+   # or
+   .\venv\Scripts\activate  # On Windows
+   ```
+
+2. Install core dependencies:
+   ```bash
+   pip install --upgrade pip
+   pip install setuptools==69.2.0
+   pip install -r requirements.txt
+   ```
+
+For detailed setup instructions and troubleshooting, see `ai/docs/python313_setup_guide.md`.
+
 ## Tutorial
 
-There is Jupyter notebook tutorial that showcases some simple commands and usage of `landlens_db`. To run this tutorial, you
+There is a Jupyter notebook tutorial that showcases some simple commands and usage of `landlens_db`. To run this tutorial, you
 must install `dotenv~==1.0.0` and `jupyter`.
-
 
 ## Usage
 
@@ -75,6 +105,13 @@ submitting pull requests.
 This project uses Sphinx and the Read the Docs theme for documentation. Contributors are encouraged to write 
 comprehensive and clear documentation for any new code. For guidelines on writing and building documentation,
 please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+## Compatibility Notes
+
+- Python 3.13 support requires specific package versions (see `requirements.txt`)
+- Some dependencies may need to be installed in a specific order
+- Virtual environment usage is strongly recommended
+- See `ai/docs/python313_setup_guide.md` for detailed compatibility information
 
 ## License
 

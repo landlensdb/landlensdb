@@ -1,16 +1,15 @@
 import base64
-import folium
 import os
 import warnings
 
+import folium
 import requests
+from folium.features import CustomIcon
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
-
-from folium.features import CustomIcon
 from sqlalchemy import MetaData
-from sqlalchemy.sql import text
 from sqlalchemy.inspection import inspect
+from sqlalchemy.sql import text
 from tqdm import tqdm
 
 
@@ -190,68 +189,119 @@ class GeoImageFrame(GeoDataFrame):
             conn.connection.commit()
 
     @staticmethod
-    def _download_image_from_url(url, dest_path):
-        """
-        Internal method to download an image from a URL.
+    def _download_image_from_url(
+        url: str,
+        dest_path: str,
+        max_retries: int = 3,
+        retry_delay: int = 1
+    ) -> str | None:
+        """Internal method to download an image from a URL with retries.
 
         Args:
-            url (str): The URL of the image to download.
-            dest_path (str): The destination path to save the downloaded image.
+            url: The URL of the image to download.
+            dest_path: The destination path to save the downloaded image.
+            max_retries: Maximum number of retry attempts.
+            retry_delay: Delay between retries in seconds.
 
         Returns:
-            str: The local path where the image was downloaded, or None if the download failed.
+            The local path where the image was downloaded, or None if failed.
         """
-        try:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
+        from time import sleep
 
-            with open(dest_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, stream=True)
+                response.raise_for_status()
 
-        except requests.RequestException as e:
-            print(f"Error downloading {url}. Error: {e}")
-            return None
+                with open(dest_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:  # Filter out keep-alive chunks
+                            f.write(chunk)
 
-        return dest_path
+                return dest_path
 
-    def download_images_to_local(self, dest_dir, filename_column=None):
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    msg = (
+                        f"Attempt {attempt + 1} failed downloading {url}. "
+                        f"Error: {e}. Retrying..."
+                    )
+                    print(msg)
+                    sleep(retry_delay)
+                else:
+                    msg = (
+                        f"Failed to download {url} after {max_retries} "
+                        f"attempts. Error: {e}"
+                    )
+                    print(msg)
+
+        return None
+
+    def download_images_to_local(self, dest_dir, filename_column=None, max_workers=10):
         """
-        Downloads the images specified in the 'image_url' column of the GeoDataFrame to a local directory.
+        Downloads the images specified in the 'image_url' column of the GeoDataFrame to a local directory using multiple threads.
 
         Args:
             dest_dir (str): The destination directory where the images will be downloaded.
             filename_column (str, optional): Column to use for the filename. Defaults to the filename in the URL.
+            max_workers (int, optional): Maximum number of concurrent download threads. Defaults to 10.
 
         Returns:
             GeoImageFrame: A new GeoImageFrame with the local paths to the downloaded images.
 
         Example:
-            local_gdf = geo_image_frame.download_images_to_local('images/')
+            local_gdf = geo_image_frame.download_images_to_local('images/', max_workers=20)
         """
+        import os
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         if "image_url" not in self.columns:
             raise ValueError("The GeoImageFrame must have a column named 'image_url'.")
 
-        gdf_copy = self.copy()
+        # Create destination directory if it doesn't exist
+        os.makedirs(dest_dir, exist_ok=True)
 
-        for index, row in tqdm(gdf_copy.iterrows(), total=gdf_copy.shape[0]):
+        gdf_copy = self.copy()
+        download_tasks = []
+
+        # Prepare download tasks
+        for index, row in gdf_copy.iterrows():
             image_url = row["image_url"]
 
+            # Skip placeholder URLs
+            if image_url.startswith("placeholder://"):
+                print(f"Skipping placeholder URL: {image_url}")
+                continue
+
+            # Skip non-HTTP URLs
             if not image_url.startswith(("http://", "https://")):
                 print(f"Skipping {image_url}. It's not a valid URL.")
                 continue
 
-            original_filename = image_url.split("/")[-1].split(".")[
-                0
-            ]  # Extract filename from URL
+            original_filename = image_url.split("/")[-1].split(".")[0]
             filename_value = row.get(filename_column, original_filename)
-
             destination_path = os.path.join(dest_dir, f"{filename_value}.jpg")
 
-            local_path = self._download_image_from_url(image_url, destination_path)
+            download_tasks.append((index, image_url, destination_path))
 
-            if local_path:
-                gdf_copy.at[index, "image_url"] = local_path
+        # Download images using thread pool
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._download_image_from_url, url, dest_path): (index, url, dest_path)
+                for index, url, dest_path in download_tasks
+            }
+
+            # Process completed downloads with progress bar
+            with tqdm(total=len(download_tasks), desc="Downloading images") as pbar:
+                for future in as_completed(futures):
+                    index, _, dest_path = futures[future]
+                    try:
+                        local_path = future.result()
+                        if local_path:
+                            gdf_copy.at[index, "image_url"] = local_path
+                    except Exception as e:
+                        print(f"Error downloading image at index {index}: {str(e)}")
+                    pbar.update(1)
 
         return GeoImageFrame(gdf_copy, geometry="geometry")
 
