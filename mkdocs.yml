@@ -1,0 +1,54 @@
+site_name: landlensdb
+site_url: https://landlensdb.sefa.ai
+repo_url: https://github.com/landlensdb/landlensdb
+
+theme:
+    name: material
+    palette:
+        primary: green
+        accent: deep-orange
+    icon:
+        repo: fontawesome/brands/github
+    features:
+        - navigation.instant
+        - search.highlight
+    custom_dir: overrides
+
+plugins:
+    - search
+    - mkdocstrings
+    - git-revision-date
+    - mkdocs-jupyter:
+        include_source: true
+        execute: false
+        ignore_h1_titles: true
+
+markdown_extensions:
+    - attr_list
+    - pymdownx.superfences
+    - pymdownx.arithmatex:
+          generic: true
+    - pymdownx.highlight:
+          linenums: true
+    - toc:
+          permalink: true
+
+nav:
+    - Home: index.md
+    - Installation: installation.md
+    - Usage:
+        - usage.md
+    - Contributing: contributing.md
+    - Changelog: https://github.com/landlensdb/landlensdb/releases
+    - Report Issues: https://github.com/landlensdb/landlensdb/issues
+    - Examples:
+        - examples/multithreading.ipynb
+        - examples/tutorial_1_multithreading.ipynb
+        - examples/tutorial_1.ipynb
+    - API Reference:
+
+extra_css:
+    - overrides/custom.css
+
+extra_javascript:
+ - https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js

@@ -1,0 +1,68 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "landlensdb"
+version = "0.0.1"
+description = "Geospatial image handling and management"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Joseph Emile Honour Percival", email = "ipercival@gmail.com"},
+    {name = "Narumasa Tsutsumida"}
+]
+keywords = ["gis", "geospatial", "images"]
+homepage = "https://github.com/landlensdb/landlensdb"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+dependencies = [
+    "geoalchemy2==0.14.3",
+    "geopandas==0.14.3",
+    "numpy==1.26.3",
+    "osmnx==1.9.1",
+    "pandas==2.2.0",
+    "psycopg2~=2.9.9",
+    "pyogrio~=0.7.2",
+    "shapely~=2.0.0",
+    "requests~=2.31.0",
+    "SQLAlchemy==2.0.25",
+    "folium==0.15.1",
+    "Rtree==1.2.0",
+    "pytz==2024.1",
+    "timezonefinder==6.4.0",
+    "Pillow~=9.4.0",
+    "tqdm==4.66.1"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.0.0",
+    "jupyter~=1.0.0",
+    "pre-commit~=3.6.0",
+    "python-dotenv==1.0.1",
+    "sphinx==7.2.6",
+    "sphinx_rtd_theme==2.0.0"
+]
+
+docs = [
+    "mkdocs>=1.4.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocs-jupyter>=0.24.0",
+    "mkdocstrings>=0.21.0",
+    "mkdocstrings-python>=0.10.0",
+    "mkdocs-git-revision-date-plugin>=0.3.3",
+    "pymdown-extensions>=9.10"
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/landlensdb/landlensdb"
+"Source" = "https://github.com/landlensdb/landlensdb"
