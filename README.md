@@ -39,8 +39,8 @@ pip install landlensdb
 - **GDAL ≥ 3.5** (ensure command-line tools work, e.g., `gdalinfo --version`)
 - **PostgreSQL ≥ 14**  
 - **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)  
-- **Python ≥ 3.10** 
-- 
+- **Python ≥ 3.10**
+
 ## Quick Start
 
 Below is a minimal example creating a GeoImageFrame:
