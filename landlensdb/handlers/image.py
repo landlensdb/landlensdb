@@ -11,7 +11,7 @@ from PIL.ExifTags import TAGS, GPSTAGS
 from shapely import Point
 from timezonefinder import TimezoneFinder
 
-from landlens_db.geoclasses.geoimageframe import GeoImageFrame
+from landlensdb.geoclasses.geoimageframe import GeoImageFrame
 
 
 KNOWN_CAMERAS = {

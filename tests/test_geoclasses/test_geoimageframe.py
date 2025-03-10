@@ -1,4 +1,4 @@
-from landlens_db.geoclasses.geoimageframe import (
+from landlensdb.geoclasses.geoimageframe import (
     GeoImageFrame,
     _generate_arrow_icon,
     _generate_arrow_svg,

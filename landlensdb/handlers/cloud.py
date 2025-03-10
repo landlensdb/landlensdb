@@ -1,14 +1,13 @@
 import pytz
 import requests
 import warnings
-import pyogrio
 
 from datetime import datetime, timezone
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 from timezonefinder import TimezoneFinder
 
-from landlens_db.geoclasses.geoimageframe import GeoImageFrame
+from landlensdb.geoclasses.geoimageframe import GeoImageFrame
 
 
 class Mapillary:
