@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import mapbox_vector_tile
-import pyogrio
 import pytz
 import requests
 from geopandas import GeoDataFrame

@@ -51,11 +51,11 @@ from shapely.geometry import Point
 
 # Create a simple GeoImageFrame from scratch
 geo_frame = GeoImageFrame(
-    {
-        "image_url": ["https://example.com/image1.jpg"],
-        "name": ["SampleImage"],
-        "geometry": [Point(-120.5, 35.2)]
-    }
+	{
+		"image_url": ["https://example.com/image1.jpg"],
+		"name": ["SampleImage"],
+		"geometry": [Point(-120.5, 35.2)]
+	}
 )
 
 print(geo_frame.head())
@@ -70,7 +70,7 @@ Full documentation (including tutorials and advanced usage) is available in this
 You can build the docs locally by installing the optional [docs] extras:
 
 ```
-pip install -e .[docs]
+pip install -e '.[docs]'
 mkdocs serve
 ```
 

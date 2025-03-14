@@ -46,6 +46,9 @@ nav:
         - examples/tutorial_1_multithreading.ipynb
         - examples/tutorial_1.ipynb
     - API Reference:
+      - Handlers: api/handlers.md
+      - Geoclasses: api/geoclasses.md
+      - Process: api/process.md
 
 extra_css:
     - overrides/custom.css
