@@ -1,119 +1,121 @@
-# landlens_db: Geospatial Image Handling Library
+# landlensdb: Geospatial Image Handling and Management
 
-## Introduction
+**Streamlined geospatial image handling and database management**
 
-`landlens_db` is a Python library designed to manage and process geolocated images. It facilitates operations such
-as downloading, mapping, saving, fetching images, aligning with road networks, and managing 
-PostgreSQL database operations.
+## Overview
+
+landlensdb helps you manage geolocated images and integrate them with other spatial data sources. The library supports:
+- Image downloading and storage
+- EXIF/geotag extraction
+- Road-network alignment
+- PostgreSQL integration
+
+This workflow is designed for geo-data scientists, map enthusiasts, and anyone needing to process large sets of georeferenced images.
 
 ## Features
-
-- **GeoImageFrame Management**: Download, map, convert geolocated images.
-- **Mapillary API Integration**: Fetch image data based on different criteria.
-- **EXIF Data Processing**: Extract geotagging information from local images.
-- **PostgreSQL Database Operations**: Handle image-related database operations.
-- **Road Network Alignment**: Align images with road networks.
-
-## Requirements
-
-- Python 3.13.2 or later
-- pip (latest version)
-- virtualenv or venv module
-
-For detailed version requirements of dependencies, see `requirements.txt`.
+- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure. 
+- **Mapillary API Integration**: Fetch and analyze images with geospatial metadata.
+- **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
+- **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.
+- **Road Network Alignment**: Snap image captures to road networks for precise route mapping.
 
 ## Installation
 
-### Quick Install
+Install the latest release from PyPI:
 
-Install the package using pip:
-
-```bash
-pip install landlens_db
+```
+pip install landlensdb
 ```
 
-### Development Setup (Python 3.13)
+### Dependencies
 
-For development or if you're using Python 3.13, follow these steps:
+> [!IMPORTANT] 
+> You **MUST** have both GDAL and PostgreSQL with PostGIS installed to use `landlensdb`.  
+> - See [GDAL Docs](https://gdal.org/en/stable/) for instructions on installing GDAL.  
+> - See [PostGIS](https://postgis.net/documentation/getting_started/) for installing PostGIS on top of PostgreSQL.
 
-1. Create and activate a virtual environment:
-   ```bash
-   python3.13 -m venv venv
-   source venv/bin/activate  # On Unix/macOS
-   # or
-   .\venv\Scripts\activate  # On Windows
-   ```
+**Minimum Requirements**:
 
-2. Install core dependencies:
-   ```bash
-   pip install --upgrade pip
-   pip install setuptools==69.2.0
-   pip install -r requirements.txt
-   ```
+- **GDAL ≥ 3.5** (ensure command-line tools work, e.g., `gdalinfo --version`)
+- **PostgreSQL ≥ 14**  
+- **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)  
+- **Python ≥ 3.10**
 
-For detailed setup instructions and troubleshooting, see `ai/docs/python313_setup_guide.md`.
+## Quick Start
 
-## Tutorial
-
-There is a Jupyter notebook tutorial that showcases some simple commands and usage of `landlens_db`. To run this tutorial, you
-must install `dotenv~==1.0.0` and `jupyter`.
-
-## Usage
-
-Example to create a `GeoImageFrame`:
+Below is a minimal example creating a GeoImageFrame:
 
 ```python
-from landlens_db.geoclasses import GeoImageFrame
+from landlensdb.geoclasses import GeoImageFrame
 from shapely.geometry import Point
 
-geo_frame = GeoImageFrame({'image_url': ['http://example.com/image.jpg'], 'name': ['Sample'], 'geometry': [Point(0, 0)]})
+# Create a simple GeoImageFrame from scratch
+geo_frame = GeoImageFrame(
+	{
+		"image_url": ["https://example.com/image1.jpg"],
+		"name": ["SampleImage"],
+		"geometry": [Point(-120.5, 35.2)]
+	}
+)
+
+print(geo_frame.head())
 ```
 
-For more detailed examples and full API documentation, refer to the [official documentation](link-to-documentation).
+For additional usage examples, see our documentation.
 
-## Testing
-
-This project uses [Pytest](https://pytest.org) for running tests. All tests are located in the `test` directory.
-To run tests, make sure you have Pytest installed, and then execute the following command:
-
-```bash
-pytest tests
-```
-
-## Code Formatting
-
-This repository uses [Black](https://github.com/psf/black) for code formatting. To contribute, make sure to format your code with Black 
-(version 22.10.0) targeting Python 3.9:
-
-```bash
-pre-commit run --all-files
-```
-
-You can set up pre-commit hooks to automate this process:
-
-```bash
-pre-commit install
-```
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for 
-submitting pull requests.
 
 ## Documentation
 
-This project uses Sphinx and the Read the Docs theme for documentation. Contributors are encouraged to write 
-comprehensive and clear documentation for any new code. For guidelines on writing and building documentation,
-please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+Full documentation (including tutorials and advanced usage) is available in this repository's docs/ folder.
+You can build the docs locally by installing the optional [docs] extras:
 
-## Compatibility Notes
+```
+pip install -e '.[docs]'
+mkdocs serve
+```
 
-- Python 3.13 support requires specific package versions (see `requirements.txt`)
-- Some dependencies may need to be installed in a specific order
-- Virtual environment usage is strongly recommended
-- See `ai/docs/python313_setup_guide.md` for detailed compatibility information
+Then open http://127.0.0.1:8000/ in your browser.
+
+## Developer Guides
+
+Local Development
+	1.	Clone this repository.
+	2.	Install in editable mode with dev extras:
+        ```
+        pip install --upgrade pip
+        pip install -e .[dev]
+        ```
+	3.	Make changes as needed and contribute via Pull Requests.
+
+## Testing
+
+We use pytest for testing. To run tests:
+
+```
+pytest tests
+```
+
+You can also run specific test files or functions, for example:
+
+```
+pytest tests/test_geoimageframe.py
+```
+
+## Code Formatting & Pre-commit
+
+landlensdb uses Black for formatting. Once you’ve installed [dev] extras:
+
+```
+pre-commit install
+pre-commit run --all-files
+```
+
+This enforces linting and formatting on each commit.
+
+## Contributing
+
+We welcome contributions! Please see CONTRIBUTING.md for guidelines on how to open issues, submit pull requests, and follow our code of conduct.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-```
+This project is licensed under the MIT License. See LICENSE.md for details.

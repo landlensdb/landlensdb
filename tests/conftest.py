@@ -1,6 +1,6 @@
 import pytest
 from shapely.geometry import Point
-from landlens_db.geoclasses.geoimageframe import GeoImageFrame
+from landlensdb.geoclasses.geoimageframe import GeoImageFrame
 
 
 @pytest.fixture
