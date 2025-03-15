@@ -140,7 +140,12 @@ ai/
 # Generated files
 test_map.html
 *_updated.ipynb
+docs/examples/*.html
+docs/examples/*.gpkg
 
 # Cache directories
 test_cache/
 cache/
+
+# MacOS
+.DS_Store

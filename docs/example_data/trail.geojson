@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "trail",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Id": 0 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 46.808341738757505, -16.319546925705211 ], [ 46.808054259122848, -16.319648519451729 ], [ 46.808017481827967, -16.319654306151619 ], [ 46.807469433690457, -16.319825886042608 ], [ 46.807374504997426, -16.319855113146346 ] ] ] } }
+]
+}
