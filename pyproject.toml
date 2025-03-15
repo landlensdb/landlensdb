@@ -31,10 +31,10 @@ classifiers = [
 
 dependencies = [
     "geoalchemy2==0.14.3",
-    "geopandas==0.14.3",
+    "geopandas==1.0.1",
     "mapbox_vector_tile==2.1.0",
     "numpy==1.26.3",
-    "osmnx==1.9.1",
+    "osmnx==2.0.1",
     "pandas==2.2.0",
     "psycopg2~=2.9.9",
     "pyogrio~=0.7.2",

@@ -140,8 +140,8 @@ ai/
 # Generated files
 test_map.html
 *_updated.ipynb
-examples/*.html
-examples/*.gpkg
+docs/examples/*.html
+docs/examples/*.gpkg
 
 # Cache directories
 test_cache/

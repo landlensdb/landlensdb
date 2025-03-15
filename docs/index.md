@@ -9,16 +9,17 @@
 **Geospatial image handling and management with Python and PostgreSQL**
 
 ## Overview
-landlensdb helps you manage geolocated images and integrate them with other spatial data sources. The library supports:
+`landlensdb` helps you manage geolocated images and integrate them with other spatial data sources. The library supports:
+
 - Image downloading and storage
 - EXIF/geotag extraction
 - Road-network alignment
 - PostgreSQL integration
 
-This workflow is designed for geo-data scientists, map enthusiasts, and anyone needing to process large sets of georeferenced images.
+This library is designed to support workflows process large sets of georeferenced images.
 
 ## Features
-- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure.
+- **GeoImageFrame**: Download, map, and convert geolocated images into a GeoDataFrame-like structure.
 - **Mapillary API Integration**: Fetch and analyze images with geospatial metadata.
 - **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
 - **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.

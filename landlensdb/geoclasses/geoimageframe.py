@@ -182,8 +182,12 @@ class GeoImageFrame(GeoDataFrame):
             for col in required_columns:
                 stmt = text(f"ALTER TABLE {table.name} ALTER COLUMN {col} SET NOT NULL")
                 conn.execute(stmt)
+
+            constraint_name = f"{table.name}_image_url_key"
+
             stmt = text(
-                f"ALTER TABLE {table.name} ADD CONSTRAINT unique_image_url UNIQUE (image_url)"
+                f"ALTER TABLE {table.name} "
+                f"ADD CONSTRAINT {constraint_name} UNIQUE (image_url)"
             )
             conn.execute(stmt)
             conn.connection.commit()

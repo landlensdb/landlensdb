@@ -42,9 +42,7 @@ nav:
     - Changelog: https://github.com/landlensdb/landlensdb/releases
     - Report Issues: https://github.com/landlensdb/landlensdb/issues
     - Examples:
-        - examples/multithreading.ipynb
-        - examples/tutorial_1_multithreading.ipynb
-        - examples/tutorial_1.ipynb
+        - examples/getting-started.ipynb
     - API Reference:
       - Handlers: api/handlers.md
       - Geoclasses: api/geoclasses.md

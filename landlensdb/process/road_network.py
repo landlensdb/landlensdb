@@ -16,7 +16,7 @@ def get_osm_lines(bbox, network_type='drive', cache_dir=None, retries=3):
         bbox (list): Bounding box coordinates [minx, miny, maxx, maxy].
             Can be in any CRS.
         network_type (str, optional): Type of network to fetch.
-            Defaults to 'drive'.
+            Defaults to 'drive' Options are: {"all", "all_public", "bike", "drive", "drive_service", "walk"}.
         cache_dir (str, optional): Directory to cache downloaded networks.
             Defaults to None.
         retries (int, optional): Number of times to retry fetching network.
