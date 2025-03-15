@@ -146,3 +146,6 @@ docs/examples/*.gpkg
 # Cache directories
 test_cache/
 cache/
+
+# MacOS
+.DS_Store
