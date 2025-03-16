@@ -137,11 +137,14 @@ test_images/
 notebooks/temp/
 ai/
 
+test_data/output/
+
 # Generated files
 test_map.html
 *_updated.ipynb
 docs/examples/*.html
 docs/examples/*.gpkg
+docs/examples/mapillary
 
 # Cache directories
 test_cache/

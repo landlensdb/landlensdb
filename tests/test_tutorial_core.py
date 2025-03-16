@@ -129,7 +129,7 @@ def prepare_data_for_db(images, create_thumbnails=True):
 
 def test_local_images():
     print("\nTesting local image loading...")
-    local_images = Local.load_images("test_images/local")
+    local_images = Local.load_images("test_data/local")
     print(f"Loaded {len(local_images)} local images")
     print("Sample data:")
     print(local_images.head())
@@ -152,8 +152,7 @@ def test_local_images():
             {'geometry': 'geometry', 'angle': 'compass_angle', 'label': 'Original'}
         ]
     )
-    map_html.save('test_map.html')
-    print("Map saved as test_map.html")
+    map_html.save('test_data/output/test_map.html')
 
     return local_images
 
@@ -167,8 +166,8 @@ def test_mapillary_images():
 
         # Create handlers
         handler = Mapillary(os.getenv("MLY_TOKEN"))
-        db_con = Postgres(os.environ.get("DATABASE_URL"))
-        table_name = os.environ.get("DB_TABLE")
+        db_con = Postgres("postgresql://localhost:5432/landlens_test")
+        table_name = "tests"
 
         # Ensure table schema
         ensure_table_schema(db_con, table_name)
@@ -353,8 +352,7 @@ def test_road_network_snapping(images):
                 {'geometry': 'snapped_geometry', 'angle': 'snapped_angle', 'label': 'Snapped'}
             ]
         )
-        map_html.save('test_snapped_map.html')
-        print("Map saved as test_snapped_map.html")
+        map_html.save('test_data/output/test_snapped_map.html')
 
     except Exception as e:
         print(f"Error in road network snapping: {e}")
@@ -368,44 +366,14 @@ def test_database_operations(images):
     print("\nTesting database operations...")
     try:
         # Basic database operations
-        db_con = Postgres(os.environ.get("DATABASE_URL"))
-        table_name = os.environ.get("DB_TABLE")
+        db_con = Postgres("postgresql://localhost:5432/landlens_test")
+        table_name = "tests"
 
         # Ensure table schema
         ensure_table_schema(db_con, table_name)
 
         # Convert GeoDataFrame to PostGIS format
-        if isinstance(images, gpd.GeoDataFrame):
-            # Prepare data for database
-            images = prepare_data_for_db(images)
-
-            # Make sure we have all required columns
-            required_columns = ['name', 'altitude', 'camera_type', 'captured_at',
-                              'compass_angle', 'image_url', 'thumb_url', 'geometry']
-            for col in required_columns:
-                if col not in images.columns:
-                    images[col] = None
-
-            # Convert to PostGIS
-            images.to_postgis(
-                table_name,
-                db_con.engine,
-                if_exists='append',
-                index=False,
-                dtype={
-                    'name': String,
-                    'mly_id': String,
-                    'altitude': Float,
-                    'camera_type': String,
-                    'captured_at': DateTime(timezone=True),
-                    'compass_angle': Float,
-                    'computed_compass_angle': Float,
-                    'exif_orientation': Integer,
-                    'image_url': String,
-                    'thumb_url': String
-                }
-            )
-            print(f"Successfully saved {len(images)} new images to PostgreSQL")
+        images.to_postgis(table_name, db_con.engine, if_exists="replace")
 
         # Test querying with different filters
         print("\nTesting database queries...")
