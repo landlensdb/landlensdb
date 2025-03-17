@@ -137,7 +137,7 @@ test_images/
 notebooks/temp/
 ai/
 
-test_data/output/
+test_data/output/*.html
 
 # Generated files
 test_map.html
