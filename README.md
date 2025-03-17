@@ -1,5 +1,12 @@
 # landlensdb: Geospatial Image Handling and Management
 
+[![PyPI](https://img.shields.io/pypi/v/landlensdb.svg)](https://pypi.org/project/landlensdb/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/iosefa/landlensdb?logo=docker&label=pulls)](https://hub.docker.com/r/landlensdb/landlensdb)
+[![Contributors](https://img.shields.io/github/contributors/landlensdb/landlensdb.svg?label=contributors)](https://github.com/landlensdb/landlensdb/graphs/contributors)
+[![Downloads](https://pepy.tech/badge/landlensdb)](https://pepy.tech/project/landlensdb)
+[![Tests](https://img.shields.io/github/actions/workflow/status/landlensdb/landlensdb/main.yml?branch=main)](https://github.com/landlensdb/landlensdb/actions/workflows/main.yml)
+
+
 **Streamlined geospatial image handling and database management**
 
 ## Overview
