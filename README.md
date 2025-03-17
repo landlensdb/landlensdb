@@ -1,5 +1,6 @@
 # landlensdb: Geospatial Image Handling and Management
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/landlensdb/landlensdb/HEAD?urlpath=%2Fdoc%2Ftree%2Fexamples%2Fgetting-started.ipynb)
 [![PyPI](https://img.shields.io/pypi/v/landlensdb.svg)](https://pypi.org/project/landlensdb/)
 [![Docker Pulls](https://img.shields.io/docker/pulls/iosefa/landlensdb?logo=docker&label=pulls)](https://hub.docker.com/r/landlensdb/landlensdb)
 [![Contributors](https://img.shields.io/github/contributors/landlensdb/landlensdb.svg?label=contributors)](https://github.com/landlensdb/landlensdb/graphs/contributors)
