@@ -22,7 +22,7 @@ maintainers = [
     {name = "Narumasa Tsutsumida"}
 ]
 keywords = ["gis", "geospatial", "images"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -30,28 +30,28 @@ classifiers = [
 ]
 
 dependencies = [
-    "geoalchemy2==0.14.3",
-    "geopandas==1.0.1",
-    "mapbox_vector_tile==2.1.0",
-    "numpy==1.26.3",
-    "osmnx==2.0.1",
-    "pandas==2.2.0",
-    "psycopg2~=2.9.9",
-    "pyogrio~=0.7.2",
-    "shapely~=2.0.0",
-    "requests~=2.31.0",
-    "SQLAlchemy==2.0.25",
-    "folium==0.15.1",
-    "Rtree==1.2.0",
-    "pytz==2024.1",
-    "timezonefinder==6.4.0",
-    "Pillow~=9.4.0",
-    "tqdm==4.66.1"
+    "geoalchemy2>=0.17.1",
+    "geopandas>=1.0.1",
+    "mapbox_vector_tile>=2.1.0",
+    "numpy>=2.2.4",
+    "osmnx>=2.0.1",
+    "pandas>=2.2.0",
+    "psycopg2>=2.9.9",
+    "pyogrio>=0.10.0",
+    "shapely>=2.0.0",
+    "requests>=2.32.0",
+    "SQLAlchemy>=2.0.25",
+    "folium>=0.19.1",
+    "Rtree>=1.4.0",
+    "pytz>=2025.1",
+    "timezonefinder>=6.5.8",
+    "Pillow>=11.0.0",
+    "tqdm>=4.67.1"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.0.0",
+    "pytest>=8.3.5",
     "pytest-cov==6.0.0",
     "jupyter~=1.0.0",
     "pre-commit~=3.6.0",

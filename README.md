@@ -89,9 +89,15 @@ Local Development
 
 ## Testing
 
-We use pytest for testing. To run tests:
+We use pytest for testing. Tests requires the following test database. Create if does not exist:
 
+```bash
+createdb landlens_test && psql landlens_test -c "create extension postgis" 
 ```
+
+Then, we can run the tests:
+
+```bash
 pytest tests
 ```
 

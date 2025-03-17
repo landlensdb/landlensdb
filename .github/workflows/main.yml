@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Install Black
         run: |
@@ -34,7 +34,22 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: landlens_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Check out the repository
@@ -45,12 +60,26 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Wait for Postgres to be ready
+        run: |
+          echo "Waiting for Postgres to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
+              echo "Postgres is ready!"
+              break
+            fi
+            echo "Postgres not ready yet..."
+            sleep 2
+          done
+
       - name: Install dev extras
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -e '.[dev]'
 
       - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/landlens_test
         run: |
           pytest --cov-branch --cov-report=xml
 

@@ -51,7 +51,25 @@ jobs:
         run: docker build -t landlensdb .
 
       - name: Tag Docker image
-        run: docker tag pixltsnorm iosefa/landlensdb:latest
+        run: docker tag landlensdb iosefa/landlensdb:latest
 
       - name: Push Docker image
         run: docker push iosefa/landlensdb:latest
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install mkdocs and plugins
+        run: |
+          pip install mkdocs mkdocs-material
+
+      - name: Deploy to GitHub Pages
+        run: |
+          mkdocs gh-deploy --force
