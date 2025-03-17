@@ -53,5 +53,5 @@ pip install git+https://github.com/landlensdb/landlensdb
 A Docker environment with `landlensdb` can be provided as well. Adjust the Docker image and tag as needed:
 
 ```bash
-docker run -it --rm -p 8888:8888 yourdockeruser/landlensdb:latest
+docker run -it --rm -p 8888:8888 iosefa/landlensdb:latest
 ```

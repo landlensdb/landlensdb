@@ -1,6 +1,11 @@
 # landlensdb Documentation
 
+[![PyPI](https://img.shields.io/pypi/v/landlensdb.svg)](https://pypi.org/project/landlensdb/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/iosefa/landlensdb?logo=docker&label=pulls)](https://hub.docker.com/r/landlensdb/landlensdb)
 [![Contributors](https://img.shields.io/github/contributors/landlensdb/landlensdb.svg?label=contributors)](https://github.com/landlensdb/landlensdb/graphs/contributors)
+[![Downloads](https://pepy.tech/badge/landlensdb)](https://pepy.tech/project/landlensdb)
+[![Tests](https://img.shields.io/github/actions/workflow/status/landlensdb/landlensdb/main.yml?branch=main)](https://github.com/landlensdb/landlensdb/actions/workflows/main.yml)
+
 
 <p align="center">
   <img src="images/landlensdb.png" alt="landlensdb" width="200">
@@ -28,17 +33,10 @@ This library is designed to support workflows process large sets of georeference
 ## Examples
 The examples below are Jupyter notebooks and can help you get started!
 
-- [Getting Started: DTM and CHM](examples/getting-started.ipynb)
-- [Calculating Forest Metrics](examples/calculate-forest-metrics.ipynb)
-- [Working with Large Point Clouds](examples/working-with-large-point-clouds.ipynb)
+- [Getting Started](examples/getting-started.ipynb)
+- [Working with Mapillary](examples/mapillary.ipynb)
 
-To install Jupyter, you can use conda or pip, with either:
-
-```python
-conda install jupyter
-```
-
-or
+To install Jupyter with pip:
 
 ```python
 pip install jupyter

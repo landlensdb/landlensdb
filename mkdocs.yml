@@ -43,6 +43,7 @@ nav:
     - Report Issues: https://github.com/landlensdb/landlensdb/issues
     - Examples:
         - examples/getting-started.ipynb
+        - examples/mapillary.ipynb
     - API Reference:
       - Handlers: api/handlers.md
       - Geoclasses: api/geoclasses.md
