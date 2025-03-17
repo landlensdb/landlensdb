@@ -16,6 +16,8 @@ from landlensdb.process.road_network import (get_osm_lines,
 from landlensdb.process.snap import snap_to_road_network
 
 
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/landlens_test")
+
 def get_existing_mapillary_data(db_con, table_name):
     """Get existing Mapillary data (IDs and image paths) from the database."""
     try:
@@ -167,7 +169,7 @@ def test_mapillary_images():
 
         # Create handlers
         handler = Mapillary(os.getenv("MLY_TOKEN"))
-        db_con = Postgres("postgresql://localhost:5432/landlens_test")
+        db_con = Postgres(DATABASE_URL)
         table_name = "tests"
 
         # Ensure table schema
@@ -368,7 +370,7 @@ def test_database_operations(images):
     print("\nTesting database operations...")
     try:
         # Basic database operations
-        db_con = Postgres("postgresql://localhost:5432/landlens_test")
+        db_con = Postgres(DATABASE_URL)
         table_name = "tests"
 
         # Ensure table schema

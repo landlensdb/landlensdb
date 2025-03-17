@@ -69,6 +69,20 @@ To contribute via pull requests:
 - **Minor version**: For backward-compatible features.
 - **Patch version**: For backward-compatible bug fixes.
 
+## Contributing to Documentation
+
+Documentation uses `mkdocs`. Install dependencies using:
+
+```bash
+pip install -e ."[docs]"
+```
+
+Commit changes and deploy using:
+
+```bash
+mkdocs gh-deploy
+```
+
 ## Additional Notes
 
 - Ensure compatibility with the latest dependencies.
