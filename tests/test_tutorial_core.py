@@ -152,6 +152,7 @@ def test_local_images():
             {'geometry': 'geometry', 'angle': 'compass_angle', 'label': 'Original'}
         ]
     )
+    os.makedirs('test_data/output', exist_ok=True)
     map_html.save('test_data/output/test_map.html')
 
     return local_images
@@ -352,6 +353,7 @@ def test_road_network_snapping(images):
                 {'geometry': 'snapped_geometry', 'angle': 'snapped_angle', 'label': 'Snapped'}
             ]
         )
+        os.makedirs('test_data/output', exist_ok=True)
         map_html.save('test_data/output/test_snapped_map.html')
 
     except Exception as e:
