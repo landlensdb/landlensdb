@@ -5,12 +5,13 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["landlensdb"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["landlensdb*"]
 
 [project]
 name = "landlensdb"
-version = "0.1.0"
+version = "0.1.1"
 description = "Geospatial image handling and management"
 readme = "README.md"
 license = {text = "MIT"}
