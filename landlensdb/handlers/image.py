@@ -329,9 +329,7 @@ class Local:
                         geotags = cls._get_geotagging(exif_data)
                         lat, lon = cls._get_coordinates(geotags)
                         if lat is None or lon is None:
-                            raise ValueError(
-                                f"Invalid coordinates for {filepath}: Latitude: {lat}, Longitude: {lon}"
-                            )
+                            warnings.warn(f"Skipping {filepath}: No valid GPS coordinates (lat={lat}, lon={lon})")
                         geometry = Point(lon, lat)
                     except Exception as e:
                         warnings.warn(
