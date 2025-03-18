@@ -11,7 +11,7 @@ include = ["landlensdb*"]
 
 [project]
 name = "landlensdb"
-version = "0.1.1"
+version = "0.1.2"
 description = "Geospatial image handling and management"
 readme = "README.md"
 license = {text = "MIT"}
