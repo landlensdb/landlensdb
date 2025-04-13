@@ -8,6 +8,10 @@ authors:
     orcid: "https://orcid.org/0000-0001-5941-4601"
 cff-version: 1.2.0
 date-released: "2025-04-13"
+identifiers:
+  - description: "version 0.1.3"
+    type: doi
+    value: 10.5281/zenodo.15206060
 keywords:
   - "street level imagery"
   - "data management"

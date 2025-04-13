@@ -6,7 +6,7 @@
 [![Contributors](https://img.shields.io/github/contributors/landlensdb/landlensdb.svg?label=contributors)](https://github.com/landlensdb/landlensdb/graphs/contributors)
 [![Downloads](https://pepy.tech/badge/landlensdb)](https://pepy.tech/project/landlensdb)
 [![Tests](https://img.shields.io/github/actions/workflow/status/landlensdb/landlensdb/main.yml?branch=main)](https://github.com/landlensdb/landlensdb/actions/workflows/main.yml)
-
+[![DOI](https://zenodo.org/badge/892907796.svg)](https://doi.org/10.5281/zenodo.15206060)
 
 **Streamlined geospatial image handling and database management**
 
