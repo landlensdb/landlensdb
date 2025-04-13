@@ -1,0 +1,17 @@
+abstract: "Streamlined geospatial image handling and database management. landlensdb helps you manage geolocated images and integrate them with other spatial data sources."
+authors:
+  - family-names: Tsutsumida
+    given-names: Narumasa
+    orcid: "https://orcid.org/0000-0002-6333-0301"
+  - family-names: Percival
+    given-names: Joseph
+    orcid: "https://orcid.org/0000-0001-5941-4601"
+cff-version: 1.2.0
+date-released: "2025-04-13"
+keywords:
+  - "street level imagery"
+  - "data management"
+license: MIT
+repository-code: "https://github.com/landlensdb/landlensdb"
+title: "landlensdb: Geospatial Image Handling and Management"
+version: 0.1.3
