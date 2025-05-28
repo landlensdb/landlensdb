@@ -295,7 +295,7 @@ class Mapillary:
         max_recursion_depth=25,
         use_coverage_tiles=True,
         max_images=5000,
-        max_workers=10
+        max_workers=10,
     ):
         """
         Fetches images within a bounding box.
@@ -330,7 +330,9 @@ class Mapillary:
 
         if use_coverage_tiles:
             # Get coverage tiles for the area
-            min_x, min_y, max_x, max_y = self._bbox_to_tile_coords(initial_bbox, self.ZOOM_LEVEL)
+            min_x, min_y, max_x, max_y = self._bbox_to_tile_coords(
+                initial_bbox, self.ZOOM_LEVEL
+            )
 
             all_image_ids = []
             print(f"Fetching {(max_x - min_x + 1) * (max_y - min_y + 1)} tiles...")
@@ -339,11 +341,11 @@ class Mapillary:
             for x in range(min_x, max_x + 1):
                 for y in range(min_y, max_y + 1):
                     features = self._fetch_coverage_tile(
-                        self.ZOOM_LEVEL, 
-                        x, 
+                        self.ZOOM_LEVEL,
+                        x,
                         y,
                         start_timestamp=start_timestamp,
-                        end_timestamp=end_timestamp
+                        end_timestamp=end_timestamp,
                     )
                     image_ids = self._extract_image_ids_from_features(features)
                     all_image_ids.extend(image_ids)
@@ -367,16 +369,16 @@ class Mapillary:
             if not all_image_ids:
                 print("No images found matching the criteria")
                 empty_data = {
-                    'id': [],
-                    'mly_id': [],
-                    'name': [],
-                    'geometry': [],
-                    'image_url': [],
-                    'quality_score': [],
-                    'captured_at': [],
-                    'computed_geometry': [],
-                    'camera_parameters': [],
-                    'computed_rotation': []
+                    "id": [],
+                    "mly_id": [],
+                    "name": [],
+                    "geometry": [],
+                    "image_url": [],
+                    "quality_score": [],
+                    "captured_at": [],
+                    "computed_geometry": [],
+                    "camera_parameters": [],
+                    "computed_rotation": [],
                 }
                 return GeoImageFrame(empty_data, geometry="geometry")
 
@@ -397,7 +399,7 @@ class Mapillary:
                 fields,
                 start_timestamp,
                 end_timestamp,
-                max_recursion_depth=max_recursion_depth
+                max_recursion_depth=max_recursion_depth,
             )
             gdf = self._json_to_gdf(data)
             return GeoImageFrame(gdf, geometry="geometry")
