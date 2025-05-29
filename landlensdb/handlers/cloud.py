@@ -286,29 +286,9 @@ class Mapillary:
                 if key in img and isinstance(img[key], list):
                     img[key] = ",".join(map(str, img[key]))
 
-            # Calculate quality score if not present
-            if "quality_score" not in img:
-                quality_score = 0.0
-                if "computed_compass_angle" in img:
-                    quality_score += 0.5  # Good compass data
-                if "atomic_scale" in img:
-                    quality_score += 0.3  # Good scale data
-                if img.get("camera_type"):
-                    quality_score += 0.2  # Camera type available
-                img["quality_score"] = quality_score
-
-        # Create GeoDataFrame
+        # Create GeoDataFrame with all images
         gdf = GeoDataFrame(json_data, crs="EPSG:4326")
         gdf.set_geometry("geometry", inplace=True)
-
-        # Sort by quality indicators and drop duplicates by sequence
-        if "sequence" in gdf.columns:
-            sort_columns = [
-                col for col in self.QUALITY_INDICATORS if col in gdf.columns
-            ]
-            if sort_columns:
-                gdf = gdf.sort_values(sort_columns, ascending=False)
-                gdf = gdf.drop_duplicates(subset=["sequence"], keep="first")
 
         # Ensure image_url is a string type
         if "image_url" in gdf.columns:
@@ -324,7 +304,7 @@ class Mapillary:
         fields=None,
         max_recursion_depth=25,
         use_coverage_tiles=True,
-        max_images=5000,
+        max_images=None,
         max_workers=10,
     ):
         """
@@ -337,7 +317,7 @@ class Mapillary:
             fields (list, optional): Fields to include in the response.
             max_recursion_depth (int, optional): Maximum depth for recursive fetching.
             use_coverage_tiles (bool, optional): Whether to use coverage tiles API for large areas.
-            max_images (int, optional): Maximum number of images to process. Default is 5000.
+            max_images (int, optional): Maximum number of images to process. Default is None (no limit).
             max_workers (int, optional): Maximum number of concurrent workers. Default is 10.
 
         Returns:
@@ -380,17 +360,15 @@ class Mapillary:
                     image_ids = self._extract_image_ids_from_features(features)
                     all_image_ids.extend(image_ids)
 
-                    # Check if we've reached the maximum number of images
-                    if (
-                        len(all_image_ids) >= max_images * 2
-                    ):  # Get more than needed to allow for filtering
+                    # Only check max_images if it's set
+                    if max_images is not None and len(all_image_ids) >= max_images * 2:
                         print(
                             f"Reached maximum number of images ({max_images}), stopping tile fetching"
                         )
                         break
 
                 # Check again after processing a row of tiles
-                if len(all_image_ids) >= max_images * 2:
+                if max_images is not None and len(all_image_ids) >= max_images * 2:
                     break
 
             print(f"Found {len(all_image_ids)} total images")
@@ -416,8 +394,8 @@ class Mapillary:
                 }
                 return GeoImageFrame(empty_data, geometry="geometry")
 
-            # Limit the number of images to process
-            if len(all_image_ids) > max_images:
+            # Limit the number of images to process only if max_images is set
+            if max_images is not None and len(all_image_ids) > max_images:
                 print(f"Limiting to {max_images} images for processing")
                 all_image_ids = all_image_ids[:max_images]
 
