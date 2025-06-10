@@ -39,10 +39,10 @@ class Mapillary:
     BASE_URL = "https://graph.mapillary.com"
     TILES_URL = "https://tiles.mapillary.com"
 
-    # API rate limits
-    ENTITY_LIMIT = 60000  # 60,000 requests per minute for entity API
-    SEARCH_LIMIT = 10000  # 10,000 requests per minute for search API
-    TILES_LIMIT = 50000  # 50,000 requests per day for tiles API
+    # API rate limits (conservative to avoid timeouts)
+    ENTITY_LIMIT = 30000  # 30,000 requests per minute for entity API (conservative)
+    SEARCH_LIMIT = 5000   # 5,000 requests per minute for search API (conservative)
+    TILES_LIMIT = 25000   # 25,000 requests per day for tiles API (conservative)
 
     # Results limit for recursive fetch
     LIMIT = 2000  # Maximum number of results per API call
@@ -184,9 +184,9 @@ class Mapillary:
         if "headers" not in kwargs:
             kwargs["headers"] = random.choice(self.USER_AGENTS)
 
-        # Add timeout if not provided
+        # Add timeout if not provided (longer for traditional API)
         if "timeout" not in kwargs:
-            kwargs["timeout"] = 30
+            kwargs["timeout"] = 60  # Increased timeout to 60 seconds
 
         # Make the request with retry logic
         max_retries = 3
@@ -334,9 +334,15 @@ class Mapillary:
         if not any(url_key in fields for url_key in self.IMAGE_URL_KEYS):
             fields.append("thumb_1024_url")
 
-        # Convert dates to timestamps in milliseconds
-        start_timestamp = self._get_timestamp_ms(start_date) if start_date else None
-        end_timestamp = self._get_timestamp_ms(end_date, True) if end_date else None
+        # Convert dates to appropriate format based on API type
+        if use_coverage_tiles:
+            # Coverage tiles use milliseconds
+            start_timestamp = self._get_timestamp_ms(start_date) if start_date else None
+            end_timestamp = self._get_timestamp_ms(end_date, True) if end_date else None
+        else:
+            # Traditional API uses ISO 8601 format
+            start_timestamp = self._get_timestamp_iso(start_date) if start_date else None
+            end_timestamp = self._get_timestamp_iso(end_date, True) if end_date else None
 
         if use_coverage_tiles:
             # Get coverage tiles for the area
@@ -407,16 +413,36 @@ class Mapillary:
             data = self._json_to_gdf(all_data)
             return GeoImageFrame(data, geometry="geometry")
         else:
-            # Use traditional recursive fetching
-            data = self._recursive_fetch(
-                initial_bbox,
-                fields,
-                start_timestamp,
-                end_timestamp,
-                max_recursion_depth=max_recursion_depth,
-            )
-            gdf = self._json_to_gdf(data)
-            return GeoImageFrame(gdf, geometry="geometry")
+            # Use traditional recursive fetching with fallback
+            try:
+                data = self._recursive_fetch(
+                    initial_bbox,
+                    fields,
+                    start_timestamp,
+                    end_timestamp,
+                    max_recursion_depth=max_recursion_depth,
+                )
+                gdf = self._json_to_gdf(data)
+                return GeoImageFrame(gdf, geometry="geometry")
+            except Exception as e:
+                if "invalid date" in str(e).lower():
+                    # Try with date-only format as fallback
+                    print(f"Retrying with date-only format...")
+                    try:
+                        data = self._recursive_fetch(
+                            initial_bbox,
+                            fields,
+                            start_date,  # Use original date string
+                            end_date,    # Use original date string
+                            max_recursion_depth=max_recursion_depth,
+                        )
+                        gdf = self._json_to_gdf(data)
+                        return GeoImageFrame(gdf, geometry="geometry")
+                    except Exception as e2:
+                        print(f"Both timestamp formats failed: {e2}")
+                        raise e
+                else:
+                    raise e
 
     def download_images(
         self,
@@ -975,7 +1001,8 @@ class Mapillary:
 
     def _get_timestamp_ms(self, date_string, end_of_day=False):
         """
-        Converts a date string to a timestamp in milliseconds.
+        Converts a date string to a timestamp in milliseconds for coverage tiles.
+        For traditional API, use _get_timestamp_iso instead.
 
         Args:
             date_string (str): The date string to convert (YYYY-MM-DD)
@@ -993,6 +1020,29 @@ class Mapillary:
 
         # Convert to UTC timestamp in milliseconds
         return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
+    
+    def _get_timestamp_iso(self, date_string, end_of_day=False):
+        """
+        Converts a date string to ISO 8601 format for traditional API.
+
+        Args:
+            date_string (str): The date string to convert (YYYY-MM-DD)
+            end_of_day (bool, optional): Whether to set the timestamp to the end of the day
+
+        Returns:
+            str: The timestamp in ISO 8601 format
+        """
+        if not date_string:
+            return None
+
+        dt = datetime.strptime(date_string, "%Y-%m-%d")
+        if end_of_day:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Convert to ISO 8601 format in UTC
+        return dt.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
 
     def _process_timestamp(self, epoch_time_ms, lat, lng):
         """
