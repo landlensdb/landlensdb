@@ -16,7 +16,6 @@ from typing import Optional, List, Union
 import numpy as np
 from tqdm import tqdm
 
-
 # Lazy import flag for optional dependencies
 _YOLO_AVAILABLE = None
 
@@ -30,29 +29,29 @@ MODEL_GDOWN_ID = "1uV8IMuGDbmDabdjyeSy4SUKV9OS-ULbe"
 
 def _get_model_search_paths() -> List[Path]:
     """Get list of directories to search for models.
-    
+
     Returns:
         List of Path objects to search for models (deduplicated).
     """
     paths = []
     seen = set()
-    
+
     def add_path(p: Path):
         resolved = p.resolve()
         if resolved not in seen:
             seen.add(resolved)
             paths.append(p)
-    
+
     # 1. User's home directory
     add_path(Path.home() / ".landlensdb" / "models")
-    
+
     # 2. Current working directory / models
     add_path(Path.cwd() / "models")
-    
+
     # 3. Package directory / models (if running from landlensdb repo)
     package_dir = Path(__file__).parent.parent.parent
     add_path(package_dir / "models")
-    
+
     return paths
 
 
@@ -67,6 +66,7 @@ def _check_yolo_available():
         try:
             from ultralytics import YOLO
             import cv2
+
             _YOLO_AVAILABLE = True
         except ImportError:
             _YOLO_AVAILABLE = False
@@ -81,6 +81,7 @@ def _get_device() -> str:
     """
     try:
         import torch
+
         return "cuda:0" if torch.cuda.is_available() else "cpu"
     except ImportError:
         return "cpu"
@@ -102,13 +103,13 @@ def get_default_model_path() -> Optional[str]:
         model_path = search_path / DEFAULT_MODEL_NAME
         if model_path.exists():
             return str(model_path)
-    
+
     return None
 
 
 def list_found_models() -> dict:
     """List all found model files in search paths.
-    
+
     Returns:
         Dictionary with model info and search paths.
     """
@@ -120,13 +121,13 @@ def list_found_models() -> dict:
 
 def download_model(output_dir: Optional[str] = None) -> str:
     """Download the dashcam_anonymizer model using gdown.
-    
+
     Args:
         output_dir: Directory to save the model. If None, uses first search path.
-    
+
     Returns:
         Path to the downloaded model.
-    
+
     Raises:
         ImportError: If gdown is not installed.
         RuntimeError: If download fails.
@@ -138,21 +139,21 @@ def download_model(output_dir: Optional[str] = None) -> str:
             "gdown is required to download the model. "
             "Install with: pip install gdown"
         )
-    
+
     if output_dir is None:
         output_dir = _get_model_search_paths()[0]
     else:
         output_dir = Path(output_dir)
-    
+
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / DEFAULT_MODEL_NAME
-    
+
     print(f"Downloading model to {output_path}...")
     gdown.download(id=MODEL_GDOWN_ID, output=str(output_path), quiet=False)
-    
+
     if not output_path.exists():
         raise RuntimeError("Model download failed.")
-    
+
     print(f"Model downloaded successfully: {output_path}")
     return str(output_path)
 
@@ -165,7 +166,7 @@ def download_models_instructions() -> str:
     """
     search_paths = _get_model_search_paths()
     paths_str = "\n   ".join([f"- {p}" for p in search_paths])
-    
+
     return f"""
 Anonymization model is required.
 
@@ -187,10 +188,10 @@ Option 3: Specify custom path
 
 def setup_model_directory(path: Optional[Path] = None) -> Path:
     """Create a model directory if it doesn't exist.
-    
+
     Args:
         path: Path to create. If None, uses the first search path.
-    
+
     Returns:
         Path to the created directory.
     """
@@ -215,7 +216,7 @@ class Anonymizer:
         >>> from landlensdb.process.anonymize import Anonymizer
         >>> anonymizer = Anonymizer()  # Uses default model
         >>> anonymizer.anonymize_image("input.jpg", "output.jpg")
-        
+
         >>> # Or with custom model path
         >>> anonymizer = Anonymizer(model_path="/path/to/model.pt")
     """
@@ -249,11 +250,11 @@ class Anonymizer:
                 "Anonymization requires additional dependencies. "
                 "Install with: pip install landlensdb[anonymize]"
             )
-        
+
         # Try to find model in default location if not provided
         if model_path is None:
             model_path = get_default_model_path()
-        
+
         # Auto-download if not found
         if model_path is None and auto_download:
             try:
@@ -266,13 +267,13 @@ class Anonymizer:
                     "Model not found and auto-download failed. "
                     "Please download the model manually."
                 )
-        
+
         if model_path is None:
             print(download_models_instructions())
             raise ValueError(
                 "No model found. Please download the model or provide a path."
             )
-        
+
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model not found: {model_path}")
 
@@ -280,13 +281,14 @@ class Anonymizer:
         self.confidence_threshold = confidence_threshold
         self.blur_radius = blur_radius if blur_radius % 2 == 1 else blur_radius + 1
         self.device = device or _get_device()
-        
+
         self._model = None
 
     def _load_model(self):
         """Lazy-load the YOLO model."""
         if self._model is None:
             from ultralytics import YOLO
+
             self._model = YOLO(self.model_path)
         return self._model
 
@@ -300,41 +302,36 @@ class Anonymizer:
             Blurred image as numpy array.
         """
         import cv2
-        
+
         model = self._load_model()
-        
+
         # Run detection
         results = model(
-            image,
-            conf=self.confidence_threshold,
-            device=self.device,
-            verbose=False
+            image, conf=self.confidence_threshold, device=self.device, verbose=False
         )
-        
+
         # Apply blur to detected regions
         result_image = image.copy()
-        
+
         for result in results:
             if result.boxes is not None:
                 for box in result.boxes:
                     # Get bounding box coordinates
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-                    
+
                     # Ensure coordinates are within image bounds
                     h, w = image.shape[:2]
                     x1, y1 = max(0, x1), max(0, y1)
                     x2, y2 = min(w, x2), min(h, y2)
-                    
+
                     if x2 > x1 and y2 > y1:
                         # Extract ROI and apply blur
                         roi = result_image[y1:y2, x1:x2]
                         blurred_roi = cv2.GaussianBlur(
-                            roi, 
-                            (self.blur_radius, self.blur_radius), 
-                            0
+                            roi, (self.blur_radius, self.blur_radius), 0
                         )
                         result_image[y1:y2, x1:x2] = blurred_roi
-        
+
         return result_image
 
     def anonymize_image(
@@ -407,14 +404,14 @@ class Anonymizer:
             raise FileNotFoundError(f"Input directory not found: {input_dir}")
 
         # Collect image files
-        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
+        image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
         image_files = []
 
         if recursive:
             for root, dirs, files in os.walk(input_dir):
                 # Skip thumbnails directory
-                if 'thumbnails' in dirs:
-                    dirs.remove('thumbnails')
+                if "thumbnails" in dirs:
+                    dirs.remove("thumbnails")
                 for file in files:
                     if os.path.splitext(file.lower())[1] in image_extensions:
                         image_files.append(os.path.join(root, file))
@@ -429,7 +426,11 @@ class Anonymizer:
 
         # Process images
         output_paths = []
-        iterator = tqdm(image_files, desc="Anonymizing images") if show_progress else image_files
+        iterator = (
+            tqdm(image_files, desc="Anonymizing images")
+            if show_progress
+            else image_files
+        )
 
         for input_path in iterator:
             try:
@@ -453,7 +454,7 @@ def anonymize_images(
     input_path: str,
     output_path: Optional[str] = None,
     model_path: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> Union[str, List[str]]:
     """
     Convenience function to anonymize images.

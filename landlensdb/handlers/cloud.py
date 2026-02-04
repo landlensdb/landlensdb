@@ -41,8 +41,8 @@ class Mapillary:
 
     # API rate limits (conservative to avoid timeouts)
     ENTITY_LIMIT = 59000  # 60,000 requests per minute for entity API
-    SEARCH_LIMIT = 9000   # 10,000 requests per minute for search API 
-    TILES_LIMIT = 49000   # 50,000 requests per day for tiles API
+    SEARCH_LIMIT = 9000  # 10,000 requests per minute for search API
+    TILES_LIMIT = 49000  # 50,000 requests per day for tiles API
 
     # Results limit for recursive fetch
     LIMIT = 2000  # Maximum number of results per API call
@@ -273,13 +273,15 @@ class Mapillary:
             download_url = None
             for key in self.IMAGE_URL_KEYS:
                 if key in img:
-                    download_url = str(img.pop(key))  # Get URL for download but don't store in dataframe
+                    download_url = str(
+                        img.pop(key)
+                    )  # Get URL for download but don't store in dataframe
                     break
-            
+
             # Store the download URL temporarily (will be used in download_images)
             if download_url:
                 img["_temp_download_url"] = download_url
-            
+
             # Set image_url as placeholder - will be updated to local path after download
             img["image_url"] = f"pending://local/{img['mly_id']}.jpg"
 
@@ -343,8 +345,12 @@ class Mapillary:
             end_timestamp = self._get_timestamp_ms(end_date, True) if end_date else None
         else:
             # Traditional API uses ISO 8601 format
-            start_timestamp = self._get_timestamp_iso(start_date) if start_date else None
-            end_timestamp = self._get_timestamp_iso(end_date, True) if end_date else None
+            start_timestamp = (
+                self._get_timestamp_iso(start_date) if start_date else None
+            )
+            end_timestamp = (
+                self._get_timestamp_iso(end_date, True) if end_date else None
+            )
 
         if use_coverage_tiles:
             # Get coverage tiles for the area
@@ -435,7 +441,7 @@ class Mapillary:
                             initial_bbox,
                             fields,
                             start_date,  # Use original date string
-                            end_date,    # Use original date string
+                            end_date,  # Use original date string
                             max_recursion_depth=max_recursion_depth,
                         )
                         gdf = self._json_to_gdf(data)
@@ -475,7 +481,7 @@ class Mapillary:
             max_retries (int, optional): Maximum number of retries for failed downloads. Defaults to 3.
 
         Returns:
-            tuple: (success_count, failed_list, updated_geoimageframe) - Number of successfully downloaded images, 
+            tuple: (success_count, failed_list, updated_geoimageframe) - Number of successfully downloaded images,
                    list of failed IDs, and GeoImageFrame with updated local image paths
         """
         # Create output directory if it doesn't exist
@@ -517,12 +523,12 @@ class Mapillary:
                 # Import here to avoid circular imports
                 import os
                 from sqlalchemy import create_engine, text
-                
+
                 # Get database connection from environment
                 database_url = os.environ.get("DATABASE_URL")
                 if database_url:
                     engine = create_engine(database_url)
-                    
+
                     # Query for existing mly_ids that have local image_url paths
                     query = text("""
                         SELECT DISTINCT mly_id 
@@ -532,16 +538,16 @@ class Mapillary:
                         AND image_url NOT LIKE 'http%' 
                         AND image_url NOT LIKE 'pending:%'
                     """)
-                    
+
                     with engine.connect() as conn:
                         result = conn.execute(query)
                         existing_mly_ids = set(str(row[0]) for row in result.fetchall())
-                    
+
                     print(f"Found {len(existing_mly_ids)} existing images in database")
                 else:
                     print("No DATABASE_URL found, falling back to directory scan")
                     existing_mly_ids = set(f.stem for f in output_dir.glob("*.jpg"))
-                    
+
             except Exception as e:
                 print(f"Error checking database for existing images: {e}")
                 print("Falling back to directory scan")
@@ -580,7 +586,9 @@ class Mapillary:
             for idx, row in updated_geoimageframe.iterrows():
                 image_id = str(row.get("mly_id", row.get("id", "")))
                 if image_id in existing_mly_ids:
-                    updated_geoimageframe.at[idx, "image_url"] = str(output_dir / f"{image_id}.jpg")
+                    updated_geoimageframe.at[idx, "image_url"] = str(
+                        output_dir / f"{image_id}.jpg"
+                    )
             return 0, [], updated_geoimageframe
 
         print(f"Preparing to download {len(df)} images")
@@ -728,40 +736,49 @@ class Mapillary:
             if image_id in downloaded_paths:
                 updated_geoimageframe.at[idx, "image_url"] = downloaded_paths[image_id]
             elif image_id in existing_mly_ids:
-                updated_geoimageframe.at[idx, "image_url"] = str(output_dir / f"{image_id}.jpg")
-        
+                updated_geoimageframe.at[idx, "image_url"] = str(
+                    output_dir / f"{image_id}.jpg"
+                )
+
         # Remove temporary download URL column if it exists
         if "_temp_download_url" in updated_geoimageframe.columns:
-            updated_geoimageframe = updated_geoimageframe.drop(columns=["_temp_download_url"])
+            updated_geoimageframe = updated_geoimageframe.drop(
+                columns=["_temp_download_url"]
+            )
 
         return success_count, failed_ids, updated_geoimageframe
-
 
     def _detect_login_page(self, response):
         """
         Detect if the response is a login page instead of vector tile data.
-        
+
         Args:
             response: HTTP response object
-            
+
         Returns:
             bool: True if this is a login page
         """
-        content_type = response.headers.get('content-type', '')
-        
+        content_type = response.headers.get("content-type", "")
+
         # Check for HTML content type
-        if 'text/html' in content_type:
+        if "text/html" in content_type:
             try:
                 text_content = response.text
                 # Check for Japanese login messages
-                if 'ログインしていません' in text_content or 'ログインしてください' in text_content:
+                if (
+                    "ログインしていません" in text_content
+                    or "ログインしてください" in text_content
+                ):
                     return True
                 # Check for English login messages
-                if 'not logged in' in text_content.lower() or 'please log in' in text_content.lower():
+                if (
+                    "not logged in" in text_content.lower()
+                    or "please log in" in text_content.lower()
+                ):
                     return True
             except:
                 pass
-        
+
         return False
 
     def _fetch_coverage_tile(
@@ -791,9 +808,11 @@ class Mapillary:
             if response.status_code == 200:
                 # Check for authentication issues first
                 if self._detect_login_page(response):
-                    warnings.warn(f"Authentication required for tile {x},{y} - falling back to traditional API")
+                    warnings.warn(
+                        f"Authentication required for tile {x},{y} - falling back to traditional API"
+                    )
                     return []
-                
+
                 # Vector tiles are binary, not JSON
                 if "application/x-protobuf" in response.headers.get("content-type", ""):
                     try:
@@ -1095,7 +1114,7 @@ class Mapillary:
 
         # Convert to UTC timestamp in milliseconds
         return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
-    
+
     def _get_timestamp_iso(self, date_string, end_of_day=False):
         """
         Converts a date string to ISO 8601 format for traditional API.
@@ -1117,7 +1136,7 @@ class Mapillary:
             dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Convert to ISO 8601 format in UTC
-        return dt.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
+        return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
     def _process_timestamp(self, epoch_time_ms, lat, lng):
         """

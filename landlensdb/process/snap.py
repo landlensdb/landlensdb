@@ -12,7 +12,7 @@ from .road_network import (
     get_osm_lines,
     optimize_network_for_snapping,
     validate_network_topology,
-    create_network_cache_dir
+    create_network_cache_dir,
 )
 
 
@@ -126,12 +126,10 @@ def align_compass_with_road(points, network):
         GeoDataFrame: A GeoDataFrame with updated snapped_angle field.
     """
     if points["snapped_geometry"].isnull().any():
-        warnings.warn(
-            """
+        warnings.warn("""
             GeodataImageFrame contains rows with empty snapped_geometry. Non-snapped images will be skipped.
             To snap all images, try increasing the threshold or changing the road network.
-            """
-        )
+            """)
     idx = _create_spatial_index(network.geometry)
     for row_idx, point in points.iterrows():
         if point.snapped_geometry is None:
@@ -154,8 +152,15 @@ def align_compass_with_road(points, network):
     return points
 
 
-def snap_to_road_network(gif, tolerance, network=None, bbox=None, network_type="all_private", 
-                        realign_camera=True, cache_dir=None):
+def snap_to_road_network(
+    gif,
+    tolerance,
+    network=None,
+    bbox=None,
+    network_type="all_private",
+    realign_camera=True,
+    cache_dir=None,
+):
     """Enhanced function to snap points to road network with automatic network fetching.
 
     Args:
@@ -172,20 +177,20 @@ def snap_to_road_network(gif, tolerance, network=None, bbox=None, network_type="
     """
     if network is None and bbox is None:
         bbox = gif.geometry.total_bounds
-        
+
     if network is None:
         if cache_dir is None:
             cache_dir = create_network_cache_dir()
         network = get_osm_lines(bbox, network_type=network_type, cache_dir=cache_dir)
-        
+
     # Optimize network for snapping
     network = optimize_network_for_snapping(network)
-    
+
     # Validate network topology
     network, report = validate_network_topology(network)
-    if report['issues']:
+    if report["issues"]:
         warnings.warn(f"Network validation found issues: {report['issues']}")
-    
+
     points = gif[["image_url", "geometry"]].copy()
     points = points.to_crs(3857)
 
@@ -229,14 +234,12 @@ def snap_to_road_network(gif, tolerance, network=None, bbox=None, network_type="
 
     missing = gif[gif["snapped_geometry"].isnull()].image_url.tolist()
     if len(missing) > 0:
-        warnings.warn(
-            f"""
+        warnings.warn(f"""
         Not all images were snapped. Non-snapped images will not be added 
         to the snapped image table. To snap all images, try increasing the threshold 
         or changing the road network. The following images could not be snapped 
         to a road network: {missing}
-        """
-        )
+        """)
 
     if realign_camera:
         if "compass_angle" not in gif.columns:

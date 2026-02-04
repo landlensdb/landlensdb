@@ -13,7 +13,6 @@ from timezonefinder import TimezoneFinder
 
 from landlensdb.geoclasses.geoimageframe import GeoImageFrame
 
-
 KNOWN_CAMERAS = {
     "360 Models": ["RICOH THETA SC", "RICOH THETA S", "RICOH THETA V", "RICOH THETA X"]
 }
@@ -124,8 +123,8 @@ class Local:
         try:
             with Image.open(image_path) as img:
                 # Convert to RGB if necessary
-                if img.mode in ('RGBA', 'LA'):
-                    img = img.convert('RGB')
+                if img.mode in ("RGBA", "LA"):
+                    img = img.convert("RGB")
 
                 # Calculate new dimensions preserving aspect ratio
                 img.thumbnail(size, Image.Resampling.LANCZOS)
@@ -345,7 +344,7 @@ class Local:
             ...     anonymize=True,
             ...     anonymize_output_dir="/path/to/anonymized"
             ... )
-            
+
             >>> # With custom model path
             >>> image_data = Local.load_images(
             ...     directory,
@@ -363,7 +362,7 @@ class Local:
                     "When anonymize=True and overwrite=False, "
                     "anonymize_output_dir must be specified."
                 )
-            
+
             try:
                 from landlensdb.process.anonymize import Anonymizer
             except ImportError as e:
@@ -401,14 +400,20 @@ class Local:
                             if anonymize_output_dir is not None:
                                 # Preserve directory structure in output
                                 rel_path = os.path.relpath(filepath, directory)
-                                output_path = os.path.join(anonymize_output_dir, rel_path)
+                                output_path = os.path.join(
+                                    anonymize_output_dir, rel_path
+                                )
                                 output_dir = os.path.dirname(output_path)
                                 if output_dir:
                                     os.makedirs(output_dir, exist_ok=True)
-                                image_url = anonymizer.anonymize_image(filepath, output_path)
+                                image_url = anonymizer.anonymize_image(
+                                    filepath, output_path
+                                )
                             elif overwrite:
                                 # Overwrite original image
-                                image_url = anonymizer.anonymize_image(filepath, filepath)
+                                image_url = anonymizer.anonymize_image(
+                                    filepath, filepath
+                                )
                             else:
                                 # This shouldn't happen due to validation above
                                 image_url = filepath
@@ -423,7 +428,9 @@ class Local:
                         geotags = cls._get_geotagging(exif_data)
                         lat, lon = cls._get_coordinates(geotags)
                         if lat is None or lon is None:
-                            warnings.warn(f"Skipping {filepath}: No valid GPS coordinates (lat={lat}, lon={lon})")
+                            warnings.warn(
+                                f"Skipping {filepath}: No valid GPS coordinates (lat={lat}, lon={lon})"
+                            )
                         geometry = Point(lon, lat)
                     except Exception as e:
                         warnings.warn(
@@ -469,16 +476,22 @@ class Local:
                         try:
                             # Use anonymized image path for thumbnail if available
                             thumb_source = image_url
-                            thumbnail_dir = os.path.join(os.path.dirname(thumb_source), "thumbnails")
+                            thumbnail_dir = os.path.join(
+                                os.path.dirname(thumb_source), "thumbnails"
+                            )
                             thumb_filename = f"thumb_{os.path.basename(thumb_source)}"
                             thumb_path = os.path.join(thumbnail_dir, thumb_filename)
 
                             if os.path.exists(thumb_path):
                                 thumb_url = thumb_path
                             else:
-                                thumb_url = cls.create_thumbnail(thumb_source, size=thumbnail_size)
+                                thumb_url = cls.create_thumbnail(
+                                    thumb_source, size=thumbnail_size
+                                )
                         except Exception as e:
-                            warnings.warn(f"Error creating thumbnail for {filepath}: {str(e)}")
+                            warnings.warn(
+                                f"Error creating thumbnail for {filepath}: {str(e)}"
+                            )
 
                     image_data = {
                         "name": filepath.split("/")[-1],

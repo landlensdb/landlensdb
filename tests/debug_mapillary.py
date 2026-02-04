@@ -10,14 +10,16 @@ from shapely.geometry import Point, shape
 
 def lon_to_tile_x(lon_deg, zoom):
     """Convert longitude to tile X coordinate"""
-    n = 2.0 ** zoom
+    n = 2.0**zoom
     return int((lon_deg + 180.0) / 360.0 * n)
+
 
 def lat_to_tile_y(lat_deg, zoom):
     """Convert latitude to tile Y coordinate"""
     lat_rad = math.radians(lat_deg)
-    n = 2.0 ** zoom
+    n = 2.0**zoom
     return int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+
 
 def bbox_to_tiles(bbox, zoom):
     """Convert a bounding box to tile coordinates"""
@@ -28,9 +30,10 @@ def bbox_to_tiles(bbox, zoom):
     max_y = lat_to_tile_y(south, zoom)
     return min_x, min_y, max_x, max_y
 
+
 def tile_to_bbox(x, y, zoom):
     """Convert tile coordinates to a bounding box"""
-    n = 2.0 ** zoom
+    n = 2.0**zoom
     west = x / n * 360.0 - 180.0
     east = (x + 1) / n * 360.0 - 180.0
 
@@ -42,6 +45,7 @@ def tile_to_bbox(x, y, zoom):
 
     return [west, south, east, north]
 
+
 def fetch_coverage_tile(token, zoom, x, y):
     """Fetch a single coverage tile"""
     url = f"https://tiles.mapillary.com/maps/vtp/mly1_public/2/{zoom}/{x}/{y}?access_token={token}"
@@ -52,15 +56,15 @@ def fetch_coverage_tile(token, zoom, x, y):
         if response.status_code == 200:
             print(f"Success! Content type: {response.headers.get('content-type')}")
             # Vector tiles are binary, not JSON
-            if 'application/x-protobuf' in response.headers.get('content-type', ''):
+            if "application/x-protobuf" in response.headers.get("content-type", ""):
                 print("Received vector tile data (binary)")
                 try:
                     # Decode the vector tile
                     tile_data = mapbox_vector_tile.decode(response.content)
 
                     # Check for image layer at zoom level 14
-                    if 'image' in tile_data and zoom == 14:
-                        features = tile_data['image']['features']
+                    if "image" in tile_data and zoom == 14:
+                        features = tile_data["image"]["features"]
                         print(f"Found {len(features)} image features in tile")
 
                         # Print a sample of the first few features
@@ -69,19 +73,23 @@ def fetch_coverage_tile(token, zoom, x, y):
                             for i, feature in enumerate(features[:3]):
                                 print(f"Feature {i+1}:")
                                 print(f"  ID: {feature['properties'].get('id')}")
-                                print(f"  Captured at: {feature['properties'].get('captured_at')}")
-                                print(f"  Sequence ID: {feature['properties'].get('sequence_id')}")
+                                print(
+                                    f"  Captured at: {feature['properties'].get('captured_at')}"
+                                )
+                                print(
+                                    f"  Sequence ID: {feature['properties'].get('sequence_id')}"
+                                )
 
                         return {
-                            'success': True,
-                            'is_vector_tile': True,
-                            'features': features,
-                            'size': len(response.content)
+                            "success": True,
+                            "is_vector_tile": True,
+                            "features": features,
+                            "size": len(response.content),
                         }
 
                     # Check for sequence layer at zoom levels 6-14
-                    elif 'sequence' in tile_data and 6 <= zoom <= 14:
-                        features = tile_data['sequence']['features']
+                    elif "sequence" in tile_data and 6 <= zoom <= 14:
+                        features = tile_data["sequence"]["features"]
                         print(f"Found {len(features)} sequence features in tile")
 
                         # Print a sample of the first few features
@@ -90,53 +98,56 @@ def fetch_coverage_tile(token, zoom, x, y):
                             for i, feature in enumerate(features[:3]):
                                 print(f"Feature {i+1}:")
                                 print(f"  ID: {feature['properties'].get('id')}")
-                                print(f"  Image ID: {feature['properties'].get('image_id')}")
+                                print(
+                                    f"  Image ID: {feature['properties'].get('image_id')}"
+                                )
 
                         return {
-                            'success': True,
-                            'is_vector_tile': True,
-                            'features': features,
-                            'size': len(response.content)
+                            "success": True,
+                            "is_vector_tile": True,
+                            "features": features,
+                            "size": len(response.content),
                         }
 
                     # Check for overview layer at zoom levels 0-5
-                    elif 'overview' in tile_data and 0 <= zoom <= 5:
-                        features = tile_data['overview']['features']
+                    elif "overview" in tile_data and 0 <= zoom <= 5:
+                        features = tile_data["overview"]["features"]
                         print(f"Found {len(features)} overview features in tile")
 
                         return {
-                            'success': True,
-                            'is_vector_tile': True,
-                            'features': features,
-                            'size': len(response.content)
+                            "success": True,
+                            "is_vector_tile": True,
+                            "features": features,
+                            "size": len(response.content),
                         }
 
                     else:
                         print(f"Available layers in tile: {list(tile_data.keys())}")
                         return {
-                            'success': True,
-                            'is_vector_tile': True,
-                            'layers': list(tile_data.keys()),
-                            'size': len(response.content)
+                            "success": True,
+                            "is_vector_tile": True,
+                            "layers": list(tile_data.keys()),
+                            "size": len(response.content),
                         }
 
                 except Exception as e:
                     print(f"Error decoding vector tile: {str(e)}")
                     return {
-                        'success': True,
-                        'is_vector_tile': True,
-                        'error_decoding': str(e),
-                        'size': len(response.content)
+                        "success": True,
+                        "is_vector_tile": True,
+                        "error_decoding": str(e),
+                        "size": len(response.content),
                     }
             else:
-                return {'success': True, 'data': response.json()}
+                return {"success": True, "data": response.json()}
         else:
             print(f"Error: {response.status_code}")
             print(f"Response: {response.text}")
-            return {'success': False, 'error': response.text}
+            return {"success": False, "error": response.text}
     except Exception as e:
         print(f"Exception: {str(e)}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
+
 
 def fetch_image_metadata(token, image_id):
     """Fetch metadata for a specific image"""
@@ -146,27 +157,29 @@ def fetch_image_metadata(token, image_id):
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            return {'success': True, 'data': response.json()}
+            return {"success": True, "data": response.json()}
         else:
             print(f"Error: {response.status_code}")
             print(f"Response: {response.text}")
-            return {'success': False, 'error': response.text}
+            return {"success": False, "error": response.text}
     except Exception as e:
         print(f"Exception: {str(e)}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
+
 
 def extract_image_ids_from_tile(tile_result):
     """Extract image IDs from a tile result"""
     image_ids = []
 
-    if tile_result.get('success') and tile_result.get('is_vector_tile'):
-        features = tile_result.get('features', [])
+    if tile_result.get("success") and tile_result.get("is_vector_tile"):
+        features = tile_result.get("features", [])
 
         for feature in features:
-            if 'id' in feature.get('properties', {}):
-                image_ids.append(str(feature['properties']['id']))
+            if "id" in feature.get("properties", {}):
+                image_ids.append(str(feature["properties"]["id"]))
 
     return image_ids
+
 
 def main():
     # Load environment variables
@@ -204,13 +217,17 @@ def main():
             print(f"Tile covers area: {tile_bbox}")
 
             result = fetch_coverage_tile(token, zoom, x, y)
-            if result['success'] and result.get('is_vector_tile'):
-                print(f"Successfully received vector tile data of size {result['size']} bytes")
+            if result["success"] and result.get("is_vector_tile"):
+                print(
+                    f"Successfully received vector tile data of size {result['size']} bytes"
+                )
 
                 # Extract image IDs from the tile
                 image_ids = extract_image_ids_from_tile(result)
                 print(f"Found {len(image_ids)} image IDs in tile")
-                all_image_ids.extend(image_ids[:5])  # Add up to 5 image IDs from each tile
+                all_image_ids.extend(
+                    image_ids[:5]
+                )  # Add up to 5 image IDs from each tile
 
             tile_count += 1
 
@@ -220,10 +237,11 @@ def main():
         for i, image_id in enumerate(all_image_ids[:3]):  # Test up to 3 images
             print(f"\nImage {i+1} (ID: {image_id}):")
             image_result = fetch_image_metadata(token, image_id)
-            if image_result['success']:
+            if image_result["success"]:
                 print(f"Image metadata: {json.dumps(image_result['data'], indent=2)}")
     else:
         print("\nNo image IDs found in tiles to test direct metadata fetch")
+
 
 if __name__ == "__main__":
     main()

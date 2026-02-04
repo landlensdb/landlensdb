@@ -194,10 +194,7 @@ class GeoImageFrame(GeoDataFrame):
 
     @staticmethod
     def _download_image_from_url(
-        url: str,
-        dest_path: str,
-        max_retries: int = 3,
-        retry_delay: int = 1
+        url: str, dest_path: str, max_retries: int = 3, retry_delay: int = 1
     ) -> str | None:
         """Internal method to download an image from a URL with retries.
 
@@ -291,7 +288,11 @@ class GeoImageFrame(GeoDataFrame):
         # Download images using thread pool
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(self._download_image_from_url, url, dest_path): (index, url, dest_path)
+                executor.submit(self._download_image_from_url, url, dest_path): (
+                    index,
+                    url,
+                    dest_path,
+                )
                 for index, url, dest_path in download_tasks
             }
 

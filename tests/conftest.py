@@ -22,5 +22,5 @@ def sample_geoimageframe(sample_data):
 
 @pytest.fixture
 def images():
-    images_gdf = gpd.read_file('test_data/mapillary/images.gpkg')
+    images_gdf = gpd.read_file("test_data/mapillary/images.gpkg")
     return GeoImageFrame(images_gdf)
