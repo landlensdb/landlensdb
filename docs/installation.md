@@ -40,6 +40,21 @@ For more details on setup and configuration:
 pip install landlensdb
 ```
 
+### Optional: Anonymization Support
+
+To enable image anonymization (blur faces and license plates), install with the `anonymize` extra:
+
+```bash
+pip install landlensdb[anonymize]
+```
+
+This installs additional dependencies:
+- **ultralytics** (YOLOv8 for object detection)
+- **opencv-python** (image processing)
+- **gdown** (model download)
+
+The anonymization model (~88MB) will be automatically downloaded on first use.
+
 ### From GitHub
 
 Install the latest development version:

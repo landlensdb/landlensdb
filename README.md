@@ -17,6 +17,7 @@ landlensdb helps you manage geolocated images and integrate them with other spat
 - EXIF/geotag extraction
 - Road-network alignment
 - PostgreSQL integration
+- **Image anonymization** (blur faces and license plates)
 
 This workflow is designed for geo-data scientists, map enthusiasts, and anyone needing to process large sets of georeferenced images.
 
@@ -26,6 +27,7 @@ This workflow is designed for geo-data scientists, map enthusiasts, and anyone n
 - **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
 - **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.
 - **Road Network Alignment**: Snap image captures to road networks for precise route mapping.
+- **Image Anonymization**: Automatically blur faces and license plates in street-level imagery using YOLOv8.
 
 ## Installation
 
@@ -34,6 +36,16 @@ Install the latest release from PyPI:
 ```
 pip install landlensdb
 ```
+
+### Optional: Anonymization Support
+
+To enable image anonymization (blur faces and license plates), install with the `anonymize` extra:
+
+```
+pip install landlensdb[anonymize]
+```
+
+This installs additional dependencies including YOLOv8 for object detection. The anonymization model (~88MB) will be automatically downloaded on first use.
 
 ### Dependencies
 
@@ -67,6 +79,22 @@ geo_frame = GeoImageFrame(
 )
 
 print(geo_frame.head())
+```
+
+### Image Anonymization
+
+Blur faces and license plates in street-level images:
+
+```python
+from landlensdb.handlers.image import Local
+
+# Load images with anonymization enabled
+# Model downloads automatically on first use
+images = Local.load_images(
+    "/path/to/images",
+    anonymize=True,
+    anonymize_output_dir="/path/to/output"
+)
 ```
 
 For additional usage examples, see our documentation.
