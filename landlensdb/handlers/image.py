@@ -292,7 +292,17 @@ class Local:
             return None
 
     @classmethod
-    def load_images(cls, directory, additional_columns=None, create_thumbnails=True, thumbnail_size=(256, 256)):
+    def load_images(
+        cls,
+        directory,
+        additional_columns=None,
+        create_thumbnails=True,
+        thumbnail_size=(256, 256),
+        anonymize=False,
+        anonymize_output_dir=None,
+        face_model_path=None,
+        lp_model_path=None,
+    ):
         """
         Loads images from a given directory, extracts relevant information, and returns it in a GeoImageFrame.
 
@@ -301,17 +311,68 @@ class Local:
             additional_columns (list, optional): List of additional column names or tuples containing column name and EXIF tag.
             create_thumbnails (bool): Whether to create thumbnails for the images. Defaults to True.
             thumbnail_size (tuple): Size for generated thumbnails as (width, height). Defaults to (256, 256).
+            anonymize (bool): Whether to apply anonymization (blur faces and license plates).
+                Defaults to False. Requires optional dependencies: pip install landlensdb[anonymize]
+            anonymize_output_dir (str, optional): Directory to save anonymized images.
+                If None and anonymize=True, original images will be overwritten.
+            face_model_path (str, optional): Path to face detection model (.jit file).
+                Required if anonymize=True.
+            lp_model_path (str, optional): Path to license plate detection model (.jit file).
+                Required if anonymize=True.
 
         Returns:
             GeoImageFrame: Frame containing the data extracted from the images.
 
         Raises:
             ValueError: If no valid images are found in the directory.
+            ImportError: If anonymize=True but required dependencies are not installed.
 
         Examples:
             >>> directory = "/path/to/images"
             >>> image_data = Local.load_images(directory, create_thumbnails=True)
+            
+            >>> # With anonymization (output to new directory)
+            >>> image_data = Local.load_images(
+            ...     directory,
+            ...     anonymize=True,
+            ...     anonymize_output_dir="/path/to/anonymized",
+            ...     face_model_path="/path/to/face_model.jit",
+            ...     lp_model_path="/path/to/lp_model.jit"
+            ... )
+            
+            >>> # With anonymization (overwrite original images)
+            >>> image_data = Local.load_images(
+            ...     directory,
+            ...     anonymize=True,
+            ...     face_model_path="/path/to/face_model.jit",
+            ...     lp_model_path="/path/to/lp_model.jit"
+            ... )
         """
+        # Handle anonymization if requested
+        anonymizer = None
+        if anonymize:
+            try:
+                from landlensdb.process.anonymize import Anonymizer
+            except ImportError as e:
+                raise ImportError(
+                    "Anonymization requires additional dependencies. "
+                    "Install with: pip install landlensdb[anonymize]"
+                ) from e
+            
+            if face_model_path is None and lp_model_path is None:
+                raise ValueError(
+                    "At least one of face_model_path or lp_model_path must be provided "
+                    "when anonymize=True."
+                )
+            
+            anonymizer = Anonymizer(
+                face_model_path=face_model_path,
+                lp_model_path=lp_model_path,
+            )
+            
+            # Create output directory if specified
+            if anonymize_output_dir is not None:
+                os.makedirs(anonymize_output_dir, exist_ok=True)
         tf = TimezoneFinder()
         data = []
         valid_image_count = 0
@@ -319,10 +380,36 @@ class Local:
             # Skip thumbnails directory
             if "thumbnails" in dirs:
                 dirs.remove("thumbnails")
+            # Skip anonymized directory if it's inside the source directory
+            if anonymize_output_dir is not None:
+                anon_dir_name = os.path.basename(os.path.normpath(anonymize_output_dir))
+                if anon_dir_name in dirs:
+                    dirs.remove(anon_dir_name)
             for file in files:
                 if file.lower().endswith((".png", ".jpg", ".jpeg")):
                     valid_image_count += 1
                     filepath = os.path.join(root, file)
+                    
+                    # Apply anonymization if requested
+                    image_url = filepath
+                    if anonymizer is not None:
+                        try:
+                            if anonymize_output_dir is not None:
+                                # Preserve directory structure in output
+                                rel_path = os.path.relpath(filepath, directory)
+                                output_path = os.path.join(anonymize_output_dir, rel_path)
+                                output_dir = os.path.dirname(output_path)
+                                if output_dir:
+                                    os.makedirs(output_dir, exist_ok=True)
+                                image_url = anonymizer.anonymize_image(filepath, output_path)
+                            else:
+                                # Overwrite original image
+                                image_url = anonymizer.anonymize_image(filepath, filepath)
+                        except Exception as e:
+                            warnings.warn(
+                                f"Error anonymizing {filepath}: {str(e)}. Using original image."
+                            )
+                    
                     img = Image.open(filepath)
                     exif_data = cls.get_exif_data(img)
                     try:
@@ -373,15 +460,16 @@ class Local:
                     thumb_url = None
                     if create_thumbnails:
                         try:
-                            # Check if thumbnail already exists
-                            thumbnail_dir = os.path.join(os.path.dirname(filepath), "thumbnails")
-                            thumb_filename = f"thumb_{os.path.basename(filepath)}"
+                            # Use anonymized image path for thumbnail if available
+                            thumb_source = image_url
+                            thumbnail_dir = os.path.join(os.path.dirname(thumb_source), "thumbnails")
+                            thumb_filename = f"thumb_{os.path.basename(thumb_source)}"
                             thumb_path = os.path.join(thumbnail_dir, thumb_filename)
                             
                             if os.path.exists(thumb_path):
                                 thumb_url = thumb_path
                             else:
-                                thumb_url = cls.create_thumbnail(filepath, size=thumbnail_size)
+                                thumb_url = cls.create_thumbnail(thumb_source, size=thumbnail_size)
                         except Exception as e:
                             warnings.warn(f"Error creating thumbnail for {filepath}: {str(e)}")
 
@@ -393,7 +481,7 @@ class Local:
                         "captured_at": captured_at,
                         "compass_angle": compass_angle,
                         "exif_orientation": exif_orientation,
-                        "image_url": filepath,
+                        "image_url": image_url,
                         "thumb_url": thumb_url,
                         "geometry": geometry,
                     }

@@ -69,6 +69,12 @@ docs = [
     "pymdown-extensions>=9.10"
 ]
 
+anonymize = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "opencv-python>=4.8.0",
+]
+
 [project.urls]
 "Bug Tracker" = "https://github.com/landlensdb/landlensdb"
 "Source" = "https://github.com/landlensdb/landlensdb"
