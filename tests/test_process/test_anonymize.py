@@ -1,7 +1,7 @@
 """
 Tests for the anonymize module.
 
-Note: These tests require optional dependencies (torch, opencv-python).
+Note: These tests require optional dependencies (ultralytics, opencv-python).
 Run with: pip install landlensdb[anonymize]
 """
 
@@ -11,7 +11,7 @@ import warnings
 
 # Check if anonymize dependencies are available
 try:
-    import torch
+    from ultralytics import YOLO
     import cv2
     ANONYMIZE_AVAILABLE = True
 except ImportError:
@@ -32,30 +32,28 @@ class TestAnonymizer:
         from landlensdb.process.anonymize import anonymize_images
         assert anonymize_images is not None
     
-    def test_anonymizer_requires_model_path(self):
-        """Test that Anonymizer raises error without model paths."""
-        from landlensdb.process.anonymize import Anonymizer
+    def test_get_default_model_path(self):
+        """Test get_default_model_path function."""
+        from landlensdb.process.anonymize import get_default_model_path
         
-        with pytest.raises(ValueError, match="At least one of"):
-            Anonymizer()
+        # May return None if model not installed
+        result = get_default_model_path()
+        assert result is None or os.path.exists(result)
     
-    def test_anonymizer_file_not_found(self, tmp_path):
-        """Test that Anonymizer raises error for non-existent model file."""
-        from landlensdb.process.anonymize import Anonymizer
+    def test_list_found_models(self):
+        """Test list_found_models function."""
+        from landlensdb.process.anonymize import list_found_models
         
-        anonymizer = Anonymizer(
-            face_model_path="/nonexistent/path/model.jit"
-        )
-        
-        # Error should occur when trying to load models
-        with pytest.raises(FileNotFoundError):
-            anonymizer._load_models()
+        result = list_found_models()
+        assert "model" in result
+        assert "search_paths" in result
+        assert isinstance(result["search_paths"], list)
     
     def test_check_dependencies(self):
         """Test dependency checking function."""
-        from landlensdb.process.anonymize import _check_egoblur_available
+        from landlensdb.process.anonymize import _check_yolo_available
         
-        result = _check_egoblur_available()
+        result = _check_yolo_available()
         assert result == ANONYMIZE_AVAILABLE
     
     def test_get_device(self):
@@ -70,23 +68,25 @@ class TestAnonymizerIntegration:
     """Integration tests that require model files."""
     
     @pytest.mark.skipif(not ANONYMIZE_AVAILABLE, reason="Anonymize dependencies not installed")
-    def test_anonymize_image_without_model(self, tmp_path):
-        """Test that anonymize_image fails gracefully without model."""
-        from landlensdb.process.anonymize import Anonymizer
+    def test_anonymize_image_with_model(self, tmp_path):
+        """Test anonymize_image if model is available."""
+        from landlensdb.process.anonymize import Anonymizer, get_default_model_path
+        import numpy as np
+        
+        model_path = get_default_model_path()
+        if model_path is None:
+            pytest.skip("Model not available")
         
         # Create a dummy image
-        import numpy as np
         dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
         image_path = tmp_path / "test_image.jpg"
         cv2.imwrite(str(image_path), dummy_image)
         
-        # This should fail because model doesn't exist
-        anonymizer = Anonymizer(
-            face_model_path="/nonexistent/model.jit"
-        )
+        anonymizer = Anonymizer(model_path=model_path, auto_download=False)
+        output_path = tmp_path / "output.jpg"
+        result = anonymizer.anonymize_image(str(image_path), str(output_path))
         
-        with pytest.raises(FileNotFoundError):
-            anonymizer.anonymize_image(str(image_path))
+        assert os.path.exists(result)
 
 
 class TestLocalLoadImagesAnonymize:
@@ -103,20 +103,8 @@ class TestLocalLoadImagesAnonymize:
             assert gif is not None
             assert len(gif) > 0
     
-    @pytest.mark.skipif(not ANONYMIZE_AVAILABLE, reason="Anonymize dependencies not installed")
-    def test_load_images_anonymize_requires_model(self):
-        """Test that load_images with anonymize=True requires model paths."""
-        from landlensdb.handlers.image import Local
-        
-        test_dir = "test_data/local"
-        if os.path.exists(test_dir):
-            with pytest.raises(ValueError, match="At least one of"):
-                Local.load_images(test_dir, anonymize=True)
-    
-    def test_load_images_anonymize_import_error(self):
-        """Test that load_images gives helpful error when dependencies missing."""
-        # This test is tricky because we can't easily uninstall dependencies
-        # Just verify the parameter exists
+    def test_load_images_parameter_exists(self):
+        """Test that anonymize parameters exist in load_images."""
         from landlensdb.handlers.image import Local
         import inspect
         
@@ -125,8 +113,7 @@ class TestLocalLoadImagesAnonymize:
         
         assert "anonymize" in params
         assert "anonymize_output_dir" in params
-        assert "face_model_path" in params
-        assert "lp_model_path" in params
+        assert "model_path" in params
 
 
 class TestAnonymizeModule:
@@ -152,3 +139,9 @@ class TestAnonymizeModule:
         """Test that anonymize_images can be imported from process module."""
         from landlensdb.process import anonymize_images
         assert anonymize_images is not None
+    
+    @pytest.mark.skipif(not ANONYMIZE_AVAILABLE, reason="Anonymize dependencies not installed")
+    def test_download_model_function(self):
+        """Test that download_model function exists."""
+        from landlensdb.process.anonymize import download_model
+        assert download_model is not None

@@ -37,7 +37,7 @@ dependencies = [
     "numpy>=2.2.4",
     "osmnx>=2.0.1",
     "pandas>=2.2.0",
-    "psycopg2>=2.9.9",
+    "psycopg2-binary>=2.9.9",
     "pyogrio>=0.10.0",
     "shapely>=2.0.0",
     "requests>=2.32.0",
@@ -70,9 +70,9 @@ docs = [
 ]
 
 anonymize = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
+    "ultralytics>=8.0.0",
     "opencv-python>=4.8.0",
+    "gdown>=4.7.0",
 ]
 
 [project.urls]

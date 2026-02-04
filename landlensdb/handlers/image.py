@@ -126,10 +126,10 @@ class Local:
                 # Convert to RGB if necessary
                 if img.mode in ('RGBA', 'LA'):
                     img = img.convert('RGB')
-                
+
                 # Calculate new dimensions preserving aspect ratio
                 img.thumbnail(size, Image.Resampling.LANCZOS)
-                
+
                 # Save thumbnail
                 img.save(thumbnail_path, "JPEG", quality=85)
                 return thumbnail_path
@@ -300,8 +300,7 @@ class Local:
         thumbnail_size=(256, 256),
         anonymize=False,
         anonymize_output_dir=None,
-        face_model_path=None,
-        lp_model_path=None,
+        model_path=None,
     ):
         """
         Loads images from a given directory, extracts relevant information, and returns it in a GeoImageFrame.
@@ -315,10 +314,8 @@ class Local:
                 Defaults to False. Requires optional dependencies: pip install landlensdb[anonymize]
             anonymize_output_dir (str, optional): Directory to save anonymized images.
                 If None and anonymize=True, original images will be overwritten.
-            face_model_path (str, optional): Path to face detection model (.jit file).
-                Required if anonymize=True.
-            lp_model_path (str, optional): Path to license plate detection model (.jit file).
-                Required if anonymize=True.
+            model_path (str, optional): Path to anonymization model (.pt file).
+                If None, will search default locations or auto-download.
 
         Returns:
             GeoImageFrame: Frame containing the data extracted from the images.
@@ -330,22 +327,25 @@ class Local:
         Examples:
             >>> directory = "/path/to/images"
             >>> image_data = Local.load_images(directory, create_thumbnails=True)
-            
+
             >>> # With anonymization (output to new directory)
             >>> image_data = Local.load_images(
             ...     directory,
             ...     anonymize=True,
-            ...     anonymize_output_dir="/path/to/anonymized",
-            ...     face_model_path="/path/to/face_model.jit",
-            ...     lp_model_path="/path/to/lp_model.jit"
+            ...     anonymize_output_dir="/path/to/anonymized"
             ... )
-            
+
             >>> # With anonymization (overwrite original images)
             >>> image_data = Local.load_images(
             ...     directory,
+            ...     anonymize=True
+            ... )
+            
+            >>> # With custom model path
+            >>> image_data = Local.load_images(
+            ...     directory,
             ...     anonymize=True,
-            ...     face_model_path="/path/to/face_model.jit",
-            ...     lp_model_path="/path/to/lp_model.jit"
+            ...     model_path="/path/to/model.pt"
             ... )
         """
         # Handle anonymization if requested
@@ -358,18 +358,9 @@ class Local:
                     "Anonymization requires additional dependencies. "
                     "Install with: pip install landlensdb[anonymize]"
                 ) from e
-            
-            if face_model_path is None and lp_model_path is None:
-                raise ValueError(
-                    "At least one of face_model_path or lp_model_path must be provided "
-                    "when anonymize=True."
-                )
-            
-            anonymizer = Anonymizer(
-                face_model_path=face_model_path,
-                lp_model_path=lp_model_path,
-            )
-            
+
+            anonymizer = Anonymizer(model_path=model_path)
+
             # Create output directory if specified
             if anonymize_output_dir is not None:
                 os.makedirs(anonymize_output_dir, exist_ok=True)
@@ -389,7 +380,7 @@ class Local:
                 if file.lower().endswith((".png", ".jpg", ".jpeg")):
                     valid_image_count += 1
                     filepath = os.path.join(root, file)
-                    
+
                     # Apply anonymization if requested
                     image_url = filepath
                     if anonymizer is not None:
@@ -409,7 +400,7 @@ class Local:
                             warnings.warn(
                                 f"Error anonymizing {filepath}: {str(e)}. Using original image."
                             )
-                    
+
                     img = Image.open(filepath)
                     exif_data = cls.get_exif_data(img)
                     try:
@@ -465,7 +456,7 @@ class Local:
                             thumbnail_dir = os.path.join(os.path.dirname(thumb_source), "thumbnails")
                             thumb_filename = f"thumb_{os.path.basename(thumb_source)}"
                             thumb_path = os.path.join(thumbnail_dir, thumb_filename)
-                            
+
                             if os.path.exists(thumb_path):
                                 thumb_url = thumb_path
                             else:
