@@ -22,7 +22,7 @@ landlensdb helps you manage geolocated images and integrate them with other spat
 This workflow is designed for geo-data scientists, map enthusiasts, and anyone needing to process large sets of georeferenced images.
 
 ## Features
-- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure. 
+- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure.
 - **Mapillary API Integration**: Fetch and analyze images with geospatial metadata.
 - **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
 - **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.
@@ -37,28 +37,18 @@ Install the latest release from PyPI:
 pip install landlensdb
 ```
 
-### Optional: Anonymization Support
-
-To enable image anonymization (blur faces and license plates), install with the `anonymize` extra:
-
-```
-pip install landlensdb[anonymize]
-```
-
-This installs additional dependencies including YOLOv8 for object detection. The anonymization model (~88MB) will be automatically downloaded on first use.
-
 ### Dependencies
 
-> [!IMPORTANT] 
-> You **MUST** have both GDAL and PostgreSQL with PostGIS installed to use `landlensdb`.  
-> - See [GDAL Docs](https://gdal.org/en/stable/) for instructions on installing GDAL.  
+> [!IMPORTANT]
+> You **MUST** have both GDAL and PostgreSQL with PostGIS installed to use `landlensdb`.
+> - See [GDAL Docs](https://gdal.org/en/stable/) for instructions on installing GDAL.
 > - See [PostGIS](https://postgis.net/documentation/getting_started/) for installing PostGIS on top of PostgreSQL.
 
 **Minimum Requirements**:
 
 - **GDAL ≥ 3.5** (ensure command-line tools work, e.g., `gdalinfo --version`)
-- **PostgreSQL ≥ 14**  
-- **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)  
+- **PostgreSQL ≥ 14**
+- **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)
 - **Python ≥ 3.10**
 
 ## Quick Start
@@ -128,7 +118,7 @@ Local Development
 We use pytest for testing. Tests requires the following test database. Create if does not exist:
 
 ```bash
-createdb landlens_test && psql landlens_test -c "create extension postgis" 
+createdb landlens_test && psql landlens_test -c "create extension postgis"
 ```
 
 Then, we can run the tests:

@@ -11,7 +11,7 @@ include = ["landlensdb*"]
 
 [project]
 name = "landlensdb"
-version = "0.1.4.3"
+version = "0.2.0"
 description = "Geospatial image handling and management"
 readme = "README.md"
 license = {text = "MIT"}
@@ -47,7 +47,10 @@ dependencies = [
     "pytz>=2025.1",
     "timezonefinder>=6.5.8",
     "Pillow>=11.0.0",
-    "tqdm>=4.67.1"
+    "tqdm>=4.67.1",
+    "ultralytics>=8.0.0",
+    "opencv-python>=4.8.0",
+    "gdown>=4.7.0",
 ]
 
 [project.optional-dependencies]
@@ -67,12 +70,6 @@ docs = [
     "mkdocstrings-python>=0.10.0",
     "mkdocs-git-revision-date-plugin>=0.3.2",
     "pymdown-extensions>=9.10"
-]
-
-anonymize = [
-    "ultralytics>=8.0.0",
-    "opencv-python>=4.8.0",
-    "gdown>=4.7.0",
 ]
 
 [project.urls]
