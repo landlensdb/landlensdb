@@ -83,6 +83,13 @@ from landlensdb.handlers.image import Local
 images = Local.load_images(
     "/path/to/images",
     anonymize=True,
+    overwrite=True  # Overwrite original images
+)
+
+# Or save to a new directory
+images = Local.load_images(
+    "/path/to/images",
+    anonymize=True,
     anonymize_output_dir="/path/to/output"
 )
 ```

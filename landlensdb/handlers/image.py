@@ -299,6 +299,7 @@ class Local:
         create_thumbnails=True,
         thumbnail_size=(256, 256),
         anonymize=False,
+        overwrite=False,
         anonymize_output_dir=None,
         model_path=None,
     ):
@@ -311,9 +312,11 @@ class Local:
             create_thumbnails (bool): Whether to create thumbnails for the images. Defaults to True.
             thumbnail_size (tuple): Size for generated thumbnails as (width, height). Defaults to (256, 256).
             anonymize (bool): Whether to apply anonymization (blur faces and license plates).
-                Defaults to False. Requires optional dependencies: pip install landlensdb[anonymize]
+                Defaults to False.
+            overwrite (bool): If True and anonymize=True, overwrite original images with anonymized versions.
+                Defaults to False. If False, anonymize_output_dir must be specified.
             anonymize_output_dir (str, optional): Directory to save anonymized images.
-                If None and anonymize=True, original images will be overwritten.
+                Required if anonymize=True and overwrite=False.
             model_path (str, optional): Path to anonymization model (.pt file).
                 If None, will search default locations or auto-download.
 
@@ -322,11 +325,19 @@ class Local:
 
         Raises:
             ValueError: If no valid images are found in the directory.
+            ValueError: If anonymize=True, overwrite=False, and anonymize_output_dir is not specified.
             ImportError: If anonymize=True but required dependencies are not installed.
 
         Examples:
             >>> directory = "/path/to/images"
             >>> image_data = Local.load_images(directory, create_thumbnails=True)
+
+            >>> # With anonymization (overwrite original images)
+            >>> image_data = Local.load_images(
+            ...     directory,
+            ...     anonymize=True,
+            ...     overwrite=True
+            ... )
 
             >>> # With anonymization (output to new directory)
             >>> image_data = Local.load_images(
@@ -334,29 +345,31 @@ class Local:
             ...     anonymize=True,
             ...     anonymize_output_dir="/path/to/anonymized"
             ... )
-
-            >>> # With anonymization (overwrite original images)
-            >>> image_data = Local.load_images(
-            ...     directory,
-            ...     anonymize=True
-            ... )
             
             >>> # With custom model path
             >>> image_data = Local.load_images(
             ...     directory,
             ...     anonymize=True,
+            ...     overwrite=True,
             ...     model_path="/path/to/model.pt"
             ... )
         """
         # Handle anonymization if requested
         anonymizer = None
         if anonymize:
+            # Validate parameters
+            if not overwrite and anonymize_output_dir is None:
+                raise ValueError(
+                    "When anonymize=True and overwrite=False, "
+                    "anonymize_output_dir must be specified."
+                )
+            
             try:
                 from landlensdb.process.anonymize import Anonymizer
             except ImportError as e:
                 raise ImportError(
                     "Anonymization requires additional dependencies. "
-                    "Install with: pip install landlensdb[anonymize]"
+                    "Install with: pip install landlensdb"
                 ) from e
 
             anonymizer = Anonymizer(model_path=model_path)
@@ -393,9 +406,12 @@ class Local:
                                 if output_dir:
                                     os.makedirs(output_dir, exist_ok=True)
                                 image_url = anonymizer.anonymize_image(filepath, output_path)
-                            else:
+                            elif overwrite:
                                 # Overwrite original image
                                 image_url = anonymizer.anonymize_image(filepath, filepath)
+                            else:
+                                # This shouldn't happen due to validation above
+                                image_url = filepath
                         except Exception as e:
                             warnings.warn(
                                 f"Error anonymizing {filepath}: {str(e)}. Using original image."
