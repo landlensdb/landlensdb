@@ -94,6 +94,8 @@ images = Local.load_images(
 )
 ```
 
+The default model is based on [dashcam_anonymizer](https://github.com/varungupta31/dashcam_anonymizer). Custom models compatible with [Ultralytics](https://docs.ultralytics.com/) (YOLOv5/v8/v9/v10/v11, ONNX, TensorRT) can be specified via `model_path`.
+
 For additional usage examples, see our documentation.
 
 
