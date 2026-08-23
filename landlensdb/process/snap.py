@@ -6,6 +6,7 @@ import numpy as np
 import osmnx as ox
 import pandas as pd
 from shapely import Point
+from shapely.geometry import LineString
 from rtree import index
 
 from .road_network import (
@@ -75,6 +76,36 @@ def _calculate_bearing(point1, point2):
     return bearing
 
 
+def _circular_angle_diff(a, b):
+    """Smallest absolute difference between two angles in degrees, in ``[0, 180]``."""
+    return abs((float(a) - float(b) + 180.0) % 360.0 - 180.0)
+
+
+def _bearing_along_line_at_point(line, point):
+    """Bearing of the line edge nearest to ``point`` (not the whole way's first edge)."""
+    if line is None or line.is_empty:
+        return np.nan
+    if line.geom_type == "MultiLineString":
+        line = min(line.geoms, key=lambda geom: point.distance(geom))
+    if line.geom_type != "LineString":
+        return np.nan
+
+    coords = list(line.coords)
+    if len(coords) < 2:
+        return np.nan
+
+    best_i = 0
+    best_dist = float("inf")
+    for i in range(len(coords) - 1):
+        edge = LineString([coords[i], coords[i + 1]])
+        dist = point.distance(edge)
+        if dist < best_dist:
+            best_dist = dist
+            best_i = i
+
+    return _calculate_bearing(Point(coords[best_i]), Point(coords[best_i + 1]))
+
+
 def create_bbox(point, x_distance_meters, y_distance_meters):
     """Create a bounding box around a point.
 
@@ -137,18 +168,20 @@ def align_compass_with_road(points, network):
         nearest_segment = _get_nearest_segment(
             point.snapped_geometry, network.geometry, idx
         )
-        segment_coords = nearest_segment.coords[:]
-        segment_bearing = _calculate_bearing(
-            Point(segment_coords[0]), Point(segment_coords[1])
+        segment_bearing = _bearing_along_line_at_point(
+            nearest_segment, point.snapped_geometry
         )
+        if np.isnan(segment_bearing):
+            continue
 
-        difference_0 = abs(segment_bearing - point.compass_angle)
-        difference_180 = abs((segment_bearing + 180) % 360 - point.compass_angle)
-
-        if difference_0 < difference_180:
+        # Choose the road direction (0 or 180) closest to the original compass.
+        bearing_flip = (segment_bearing + 180.0) % 360.0
+        if _circular_angle_diff(segment_bearing, point.compass_angle) <= _circular_angle_diff(
+            bearing_flip, point.compass_angle
+        ):
             points.at[row_idx, "snapped_angle"] = segment_bearing
         else:
-            points.at[row_idx, "snapped_angle"] = (segment_bearing + 180) % 360
+            points.at[row_idx, "snapped_angle"] = bearing_flip
     return points
 
 

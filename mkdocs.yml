@@ -44,6 +44,7 @@ nav:
     - Examples:
         - examples/getting-started.ipynb
         - examples/mapillary.ipynb
+        - examples/foss4g-demo.ipynb
     - API Reference:
       - Handlers: api/handlers.md
       - Geoclasses: api/geoclasses.md
