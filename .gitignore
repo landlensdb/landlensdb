@@ -145,6 +145,10 @@ test_map.html
 docs/examples/*.html
 docs/examples/*.gpkg
 docs/examples/mapillary
+docs/examples/mapillary_demo_sequence/
+docs/examples/mapillary_demo_bbox/
+docs/examples/anonymized_demo_part1/
+docs/example_data/demo_part1/
 
 # Cache directories
 test_cache/

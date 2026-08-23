@@ -30,6 +30,7 @@ This library is designed to support workflows process large sets of georeference
 - **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
 - **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.
 - **Road Network Alignment**: Snap image captures to road networks for precise route mapping.
+- **Image Anonymization**: Automatically blur faces and license plates in street-level imagery using YOLOv8.
 
 ## Examples
 The examples below are Jupyter notebooks and can help you get started!

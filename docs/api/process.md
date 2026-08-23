@@ -5,3 +5,6 @@
 
 ## Snap
 ::: landlensdb.process.snap
+
+## Anonymize
+::: landlensdb.process.anonymize

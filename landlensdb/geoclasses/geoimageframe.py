@@ -1,11 +1,13 @@
 import base64
 import os
 import warnings
+from io import BytesIO
 
 import folium
 import requests
 from folium.features import CustomIcon
 from geopandas import GeoDataFrame
+from PIL import Image as PILImage
 from shapely.geometry import Point
 from sqlalchemy import MetaData
 from sqlalchemy.inspection import inspect
@@ -13,11 +15,23 @@ from sqlalchemy.sql import text
 from tqdm import tqdm
 
 
-def _generate_arrow_icon(compass_angle):
+def _hex_to_rgba(hex_color: str, alpha: float = 0.3) -> str:
+    """Convert ``#RRGGBB`` to an ``rgba(...)`` CSS color."""
+    value = hex_color.lstrip("#")
+    if len(value) != 6:
+        return f"rgba(0, 0, 255, {alpha})"
+    red = int(value[0:2], 16)
+    green = int(value[2:4], 16)
+    blue = int(value[4:6], 16)
+    return f"rgba({red}, {green}, {blue}, {alpha})"
+
+
+def _generate_arrow_icon(compass_angle, color="#6699FF"):
     """Generates an arrow icon based on the specified compass angle.
 
     Args:
         compass_angle (float): The compass angle in degrees to which the arrow points.
+        color (str): Marker fill color as ``#RRGGBB``. Defaults to ``#6699FF``.
 
     Returns:
         folium.features.CustomIcon: A Folium CustomIcon object representing the arrow.
@@ -26,7 +40,7 @@ def _generate_arrow_icon(compass_angle):
         icon = generate_arrow_icon(90)
         marker = folium.Marker(location=[lat, lon], icon=icon)
     """
-    svg = _generate_arrow_svg(compass_angle)
+    svg = _generate_arrow_svg(compass_angle, color=color)
     encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
     data_url = f"data:image/svg+xml;base64,{encoded}"
 
@@ -34,11 +48,12 @@ def _generate_arrow_icon(compass_angle):
     return icon
 
 
-def _generate_arrow_svg(compass_angle):
+def _generate_arrow_svg(compass_angle, color="#6699FF"):
     """Generates an SVG string representing an arrow pointing to the specified compass angle.
 
     Args:
         compass_angle (float): The compass angle in degrees to which the arrow points.
+        color (str): Marker fill color as ``#RRGGBB``. Defaults to ``#6699FF``.
 
     Returns:
         str: The SVG string of the arrow.
@@ -46,19 +61,20 @@ def _generate_arrow_svg(compass_angle):
     Example:
         svg_str = generate_arrow_svg(45)
     """
+    fov_fill = _hex_to_rgba(color, alpha=0.3)
     return f"""
 <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-    <!-- Background circle (lighter blue dot) -->
-    <circle cx="100" cy="100" r="40" fill="#6699FF"/>
+    <!-- Background circle -->
+    <circle cx="100" cy="100" r="40" fill="{color}"/>
 
     <g transform="rotate({compass_angle}, 100, 100)">
-        <!-- Field of view arc. This example shows a FOV centered on the top (north) and spans 45 degrees -->
-        <path d="M100,100 L150,50 A70,70 0 0,0 50,50 Z" fill="rgba(0,0,255,0.3)"/>
+        <!-- Field of view arc centered on north, spanning ~45 degrees -->
+        <path d="M100,100 L150,50 A70,70 0 0,0 50,50 Z" fill="{fov_fill}"/>
     </g>
 
     <!-- Camera icon, adjusted to center -->
     <rect x="80" y="86.5" width="40" height="27" fill="white"/>
-    <circle cx="100" cy="99.5" r="9" fill="#6699FF" stroke="white" stroke-width="2.5"/>
+    <circle cx="100" cy="99.5" r="9" fill="{color}" stroke="white" stroke-width="2.5"/>
     <rect x="90" y="79.5" width="20" height="7" fill="white"/>
 </svg>
     """
@@ -194,10 +210,7 @@ class GeoImageFrame(GeoDataFrame):
 
     @staticmethod
     def _download_image_from_url(
-        url: str,
-        dest_path: str,
-        max_retries: int = 3,
-        retry_delay: int = 1
+        url: str, dest_path: str, max_retries: int = 3, retry_delay: int = 1
     ) -> str | None:
         """Internal method to download an image from a URL with retries.
 
@@ -291,7 +304,11 @@ class GeoImageFrame(GeoDataFrame):
         # Download images using thread pool
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(self._download_image_from_url, url, dest_path): (index, url, dest_path)
+                executor.submit(self._download_image_from_url, url, dest_path): (
+                    index,
+                    url,
+                    dest_path,
+                )
                 for index, url, dest_path in download_tasks
             }
 
@@ -356,9 +373,17 @@ class GeoImageFrame(GeoDataFrame):
             )
 
         if os.path.exists(image_url):
-            with open(image_url, "rb") as image_file:
-                encoded_image = base64.b64encode(image_file.read()).decode()
-                image_url = f"data:image/jpg;base64,{encoded_image}"
+            # Downscale before embedding so Folium HTML stays renderable in notebooks.
+            try:
+                with PILImage.open(image_url) as img:
+                    img = img.convert("RGB")
+                    img.thumbnail((305, 305))
+                    buffer = BytesIO()
+                    img.save(buffer, format="JPEG", quality=70)
+                    encoded_image = base64.b64encode(buffer.getvalue()).decode()
+                    image_url = f"data:image/jpeg;base64,{encoded_image}"
+            except Exception as exc:
+                warnings.warn(f"Could not embed image '{image_url}': {exc}")
 
         html = f"""
                     <!DOCTYPE html>
@@ -385,6 +410,7 @@ class GeoImageFrame(GeoDataFrame):
         max_zoom=19,
         additional_properties=None,
         additional_geometries=None,
+        marker_color="#6699FF",
     ):
         """Maps the GeoImageFrame using Folium.
 
@@ -394,6 +420,8 @@ class GeoImageFrame(GeoDataFrame):
             max_zoom (int): Maximum zoom level. Default is 19.
             additional_properties (list, optional): Additional properties to display in the popup.
             additional_geometries (list, optional): Additional geometries to include on the map.
+                Each dict may include ``color`` (``#RRGGBB``) for that layer's markers.
+            marker_color (str): Color for the primary ``geometry`` markers. Default ``#6699FF``.
 
         Returns:
             folium.Map: A Folium Map object displaying the GeoImageFrame.
@@ -417,7 +445,7 @@ class GeoImageFrame(GeoDataFrame):
 
         image_urls = []
 
-        def add_markers_to_group(geo_col, angle_col, group_name):
+        def add_markers_to_group(geo_col, angle_col, group_name, color):
             nonlocal image_urls
             marker_group = folium.FeatureGroup(name=group_name)
 
@@ -433,8 +461,11 @@ class GeoImageFrame(GeoDataFrame):
                     html = self._popup_html(i, url, additional_properties)
                     popup = folium.Popup(html=html, max_width=500, lazy=True)
 
-                    compass_angle = getattr(self, angle_col)[i]
-                    icon = _generate_arrow_icon(compass_angle)
+                    if angle_col in self.columns:
+                        compass_angle = self[angle_col][i]
+                    else:
+                        compass_angle = getattr(self, angle_col)[i]
+                    icon = _generate_arrow_icon(compass_angle, color=color)
 
                     marker = folium.Marker(location=coordinates, popup=popup, icon=icon)
                     marker.add_to(marker_group)
@@ -445,10 +476,13 @@ class GeoImageFrame(GeoDataFrame):
 
             marker_group.add_to(map_obj)
 
-        add_markers_to_group("geometry", "compass_angle", "Images")
+        add_markers_to_group("geometry", "compass_angle", "Original", marker_color)
         for geom_dict in additional_geometries:
             add_markers_to_group(
-                geom_dict["geometry"], geom_dict["angle"], geom_dict["label"]
+                geom_dict["geometry"],
+                geom_dict["angle"],
+                geom_dict["label"],
+                geom_dict.get("color", "#E74C3C"),
             )
 
         folium.LayerControl().add_to(map_obj)

@@ -9,13 +9,14 @@ authors:
 cff-version: 1.2.0
 date-released: "2025-05-28"
 identifiers:
-  - description: "version 0.1.4"
+  - description: "version 0.2.0"
     type: doi
     value: 10.5281/zenodo.15206060
 keywords:
   - "street level imagery"
   - "data management"
+  - "image anonymization"
 license: MIT
 repository-code: "https://github.com/landlensdb/landlensdb"
 title: "landlensdb: Geospatial Image Handling and Management"
-version: 0.1.4
+version: 0.2.0

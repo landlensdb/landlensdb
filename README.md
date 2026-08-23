@@ -17,15 +17,17 @@ landlensdb helps you manage geolocated images and integrate them with other spat
 - EXIF/geotag extraction
 - Road-network alignment
 - PostgreSQL integration
+- **Image anonymization** (blur faces and license plates)
 
 This workflow is designed for geo-data scientists, map enthusiasts, and anyone needing to process large sets of georeferenced images.
 
 ## Features
-- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure. 
+- **GeoImageFrame Management**: Download, map, and convert geolocated images into a GeoDataFrame-like structure.
 - **Mapillary API Integration**: Fetch and analyze images with geospatial metadata.
 - **EXIF Data Processing**: Extract geolocation, timestamps, and orientation from image metadata.
 - **Database Operations**: Store image records in PostgreSQL; retrieve them by location or time.
 - **Road Network Alignment**: Snap image captures to road networks for precise route mapping.
+- **Image Anonymization**: Automatically blur faces and license plates in street-level imagery using YOLOv8.
 
 ## Installation
 
@@ -37,16 +39,16 @@ pip install landlensdb
 
 ### Dependencies
 
-> [!IMPORTANT] 
-> You **MUST** have both GDAL and PostgreSQL with PostGIS installed to use `landlensdb`.  
-> - See [GDAL Docs](https://gdal.org/en/stable/) for instructions on installing GDAL.  
+> [!IMPORTANT]
+> You **MUST** have both GDAL and PostgreSQL with PostGIS installed to use `landlensdb`.
+> - See [GDAL Docs](https://gdal.org/en/stable/) for instructions on installing GDAL.
 > - See [PostGIS](https://postgis.net/documentation/getting_started/) for installing PostGIS on top of PostgreSQL.
 
 **Minimum Requirements**:
 
 - **GDAL ≥ 3.5** (ensure command-line tools work, e.g., `gdalinfo --version`)
-- **PostgreSQL ≥ 14**  
-- **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)  
+- **PostgreSQL ≥ 14**
+- **PostGIS ≥ 3.5** (the extension must be installed in your PostgreSQL database)
 - **Python ≥ 3.10**
 
 ## Quick Start
@@ -68,6 +70,31 @@ geo_frame = GeoImageFrame(
 
 print(geo_frame.head())
 ```
+
+### Image Anonymization
+
+Blur faces and license plates in street-level images:
+
+```python
+from landlensdb.handlers.image import Local
+
+# Load images with anonymization enabled
+# Model downloads automatically on first use
+images = Local.load_images(
+    "/path/to/images",
+    anonymize=True,
+    overwrite=True  # Overwrite original images
+)
+
+# Or save to a new directory
+images = Local.load_images(
+    "/path/to/images",
+    anonymize=True,
+    anonymize_output_dir="/path/to/output"
+)
+```
+
+The default model is based on [dashcam_anonymizer](https://github.com/varungupta31/dashcam_anonymizer). Custom models compatible with [Ultralytics](https://docs.ultralytics.com/) (YOLOv5/v8/v9/v10/v11, ONNX, TensorRT) can be specified via `model_path`.
 
 For additional usage examples, see our documentation.
 
@@ -100,7 +127,7 @@ Local Development
 We use pytest for testing. Tests requires the following test database. Create if does not exist:
 
 ```bash
-createdb landlens_test && psql landlens_test -c "create extension postgis" 
+createdb landlens_test && psql landlens_test -c "create extension postgis"
 ```
 
 Then, we can run the tests:

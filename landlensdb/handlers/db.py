@@ -225,8 +225,7 @@ class Postgres:
                     }
                     constraint_name = f"{table.name}_image_url_key"
                     on_conflict_stmt = insert_stmt.on_conflict_do_update(
-                        constraint=constraint_name,
-                        set_=updates
+                        constraint=constraint_name, set_=updates
                     )
                 elif conflict == "nothing":
                     on_conflict_stmt = insert_stmt.on_conflict_do_nothing()
