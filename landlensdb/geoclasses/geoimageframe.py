@@ -79,6 +79,7 @@ def _generate_arrow_svg(compass_angle, color="#6699FF"):
 </svg>
     """
 
+
 class GeoImageFrame(GeoDataFrame):
     """A GeoDataFrame extension for managing geolocated images.
 

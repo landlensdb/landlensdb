@@ -176,9 +176,9 @@ def align_compass_with_road(points, network):
 
         # Choose the road direction (0 or 180) closest to the original compass.
         bearing_flip = (segment_bearing + 180.0) % 360.0
-        if _circular_angle_diff(segment_bearing, point.compass_angle) <= _circular_angle_diff(
-            bearing_flip, point.compass_angle
-        ):
+        if _circular_angle_diff(
+            segment_bearing, point.compass_angle
+        ) <= _circular_angle_diff(bearing_flip, point.compass_angle):
             points.at[row_idx, "snapped_angle"] = segment_bearing
         else:
             points.at[row_idx, "snapped_angle"] = bearing_flip
