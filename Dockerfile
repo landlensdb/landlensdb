@@ -14,9 +14,13 @@ RUN service postgresql start \
     && sudo -u postgres psql -d landlens -c "CREATE EXTENSION postgis;" \
     && service postgresql stop
 
+COPY pyproject.toml README.md LICENSE.md /tmp/landlensdb/
+COPY landlensdb /tmp/landlensdb/landlensdb
+
 RUN pip install --no-cache-dir \
-    landlensdb \
-    jupyter-server-proxy
+    /tmp/landlensdb \
+    jupyter-server-proxy \
+    && rm -rf /tmp/landlensdb
 
 RUN mkdir -p /home/jovyan/examples
 COPY /docs/examples /home/jovyan/examples

@@ -88,12 +88,17 @@ git push origin bugfix/issue-123-description
 - **Minor**: Increment (e.g., `1.x.0`) for new backward-compatible features and improvements.
 - **Major**: Increment (e.g., `x.0.0`) for breaking changes or significant architectural shifts.
 
-Version tags will always be created in the `main` branch after merging PRs, for example:
+Version tags are created from a reviewed commit on `main` after merging PRs. Pushing
+a version tag starts the automated PyPI and Docker publishing workflow, so push only
+the intended tag after the release is approved:
 
 ```bash
-git tag -a v1.2.0 -m "Release version 1.2.0 - Added Mapillary pagination"
-git push origin --tags
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin v0.2.0
 ```
+
+See the [release checklist](docs/contributing.md#releasing-a-new-version) for the
+metadata, validation, publishing, and GitHub Release steps.
 
 ## Testing
 
