@@ -48,21 +48,42 @@ To contribute via pull requests:
 
 ### Steps for Creating a New Release
 
-1. **Ensure `main` is up to date**:
-   Confirm all changes intended for the release are merged into the `main` branch.
+1. **Prepare and verify the release**:
+   Confirm all intended changes are merged into `main`, the test workflow is green,
+   and the working tree is clean.
 
-2. **Update the version**:
-   Manually bump the version number in `setup.py` based on the type of release (major, minor, or patch) following [semantic versioning](https://semver.org/).
+2. **Update the release metadata**:
+   Set the version in `pyproject.toml`, update `CITATION.cff`, and prepare the
+   GitHub Release notes. Version numbers follow
+   [semantic versioning](https://semver.org/).
 
-3. **Create a new tag**:
-   Tag the release with the new version using the format `vX.X.X`. For example:
+3. **Run the release checks**:
+
    ```bash
-   git tag v1.2.0
-   git push origin v1.2.0
+   pytest
+   python -m build
+   twine check dist/*
    ```
 
-4. **Deploy to PyPI**:
-   The GitHub Actions workflow will automatically build and deploy the package to PyPI once the tag is pushed.
+4. **Create and push an annotated tag**:
+   After reviewing the exact commit to release, tag it using the format `vX.Y.Z`.
+   Pushing this tag starts the publishing workflow, so do not push it until the
+   release is approved.
+
+   ```bash
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+   ```
+
+5. **Monitor automated publishing**:
+   `.github/workflows/publish.yml` builds and validates the Python distributions,
+   uploads them to PyPI, and then publishes Docker images tagged with both the
+   release tag and `latest`.
+
+6. **Create the GitHub Release**:
+   The publishing workflow does not create a GitHub Release. Create it manually
+   from the pushed tag, add the prepared release notes, and confirm any connected
+   archival service (such as Zenodo) completed successfully.
 
 ### Semantic Versioning Guidelines
 - **Major version**: For incompatible API changes.
