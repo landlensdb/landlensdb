@@ -4,6 +4,7 @@ import warnings
 from io import BytesIO
 
 import folium
+import pandas as pd
 import requests
 from folium.features import CustomIcon
 from geopandas import GeoDataFrame
@@ -92,6 +93,8 @@ class GeoImageFrame(GeoDataFrame):
         geo_frame = GeoImageFrame({'image_url': ['http://example.com/image.jpg'], 'name': ['Sample'], 'geometry': [Point(0, 0)]})
     """
 
+    _required_columns = {"image_url": str, "name": str, "geometry": Point}
+
     def __init__(self, *args, **kwargs):
         """Initialize the GeoImageFrame object.
 
@@ -102,11 +105,56 @@ class GeoImageFrame(GeoDataFrame):
         super().__init__(*args, **kwargs)
         self._verify_structure()
 
+    @property
+    def _constructor(self):
+        return self._geodataframe_constructor_with_fallback
+
+    @classmethod
+    def _geodataframe_constructor_with_fallback(cls, *args, **kwargs):
+        """Preserve ``GeoImageFrame`` only when its required schema survives.
+
+        Pandas and GeoPandas construct temporary frames during operations such as
+        column selection and display formatting. Those frames are valid tabular or
+        geospatial results, but they are not complete ``GeoImageFrame`` objects when
+        a required image column has been projected out.
+        """
+        result = GeoDataFrame(*args, **kwargs)
+        has_geometry = (result.dtypes == "geometry").any()
+
+        if not has_geometry:
+            return pd.DataFrame(result)
+        if set(cls._required_columns).issubset(result.columns):
+            return cls(result)
+        return result
+
+    @classmethod
+    def _coerce_result_type(cls, result):
+        """Use ``GeoImageFrame`` only for results that retain its full schema."""
+        if not isinstance(result, pd.DataFrame):
+            return result
+
+        is_complete = set(cls._required_columns).issubset(result.columns)
+        has_geometry = (result.dtypes == "geometry").any()
+
+        if is_complete and has_geometry:
+            result.__class__ = cls
+        elif isinstance(result, cls):
+            if (result.dtypes == "geometry").any():
+                result.__class__ = GeoDataFrame
+            else:
+                result.__class__ = pd.DataFrame
+        return result
+
+    def _constructor_from_mgr(self, mgr, axes):
+        result = super()._constructor_from_mgr(mgr, axes)
+        return self._coerce_result_type(result)
+
+    def __getitem__(self, key):
+        return self._coerce_result_type(super().__getitem__(key))
+
     def _verify_structure(self):
         """Verifies the structure of the GeoImageFrame to ensure it has the required columns and datatypes."""
-        required_columns = {"image_url": str, "name": str, "geometry": Point}
-
-        for col, dtype in required_columns.items():
+        for col, dtype in self._required_columns.items():
             if col not in self.columns:
                 raise ValueError(f"The required column '{col}' is missing.")
 
