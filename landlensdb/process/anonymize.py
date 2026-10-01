@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional, List, Union
 
 import numpy as np
+from PIL import Image
 from tqdm import tqdm
 
 # Lazy import flag for optional dependencies
@@ -354,18 +355,18 @@ class Anonymizer:
             FileNotFoundError: If input image doesn't exist.
             ValueError: If image cannot be processed.
         """
-        import cv2
-
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Input image not found: {input_path}")
 
         if output_path is None:
             output_path = input_path
 
-        # Read image
-        image = cv2.imread(input_path)
-        if image is None:
-            raise ValueError(f"Could not read image: {input_path}")
+        # Keep EXIF/GPS and the original pixel orientation, including on overwrite.
+        # OpenCV's image writer would discard the geotags needed by later imports.
+        with Image.open(input_path) as source:
+            exif = source.getexif()
+            save_options = {"exif": exif.tobytes()} if exif else {}
+            image = np.ascontiguousarray(np.asarray(source.convert("RGB"))[:, :, ::-1])
 
         # Detect and blur
         result = self._detect_and_blur(image)
@@ -376,7 +377,7 @@ class Anonymizer:
             os.makedirs(output_dir, exist_ok=True)
 
         # Save result
-        cv2.imwrite(output_path, result)
+        Image.fromarray(result[:, :, ::-1]).save(output_path, **save_options)
 
         return output_path
 

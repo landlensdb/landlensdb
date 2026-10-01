@@ -96,33 +96,6 @@ class TestAnonymizerIntegration:
         assert os.path.exists(result)
 
 
-class TestLocalLoadImagesAnonymize:
-    """Tests for Local.load_images with anonymize option."""
-
-    def test_load_images_anonymize_false(self):
-        """Test that load_images works normally with anonymize=False."""
-        from landlensdb.handlers.image import Local
-
-        # This should work without anonymize dependencies
-        test_dir = "test_data/local"
-        if os.path.exists(test_dir):
-            gif = Local.load_images(test_dir, anonymize=False)
-            assert gif is not None
-            assert len(gif) > 0
-
-    def test_load_images_parameter_exists(self):
-        """Test that anonymize parameters exist in load_images."""
-        from landlensdb.handlers.image import Local
-        import inspect
-
-        sig = inspect.signature(Local.load_images)
-        params = list(sig.parameters.keys())
-
-        assert "anonymize" in params
-        assert "anonymize_output_dir" in params
-        assert "model_path" in params
-
-
 class TestAnonymizeModule:
     """Tests for the anonymize module structure."""
 

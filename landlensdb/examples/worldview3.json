@@ -1,0 +1,80 @@
+{
+  "file_glob": "/path/to/worldview3/**/*.@(til|TIL)",
+  "name": "file.name",
+  "image_url": "file.path",
+  "geometry": {
+    "upper_left": ["sidecar.BAND_*.ULLon", "sidecar.BAND_*.ULLat"],
+    "upper_right": ["sidecar.BAND_*.URLon", "sidecar.BAND_*.URLat"],
+    "lower_right": ["sidecar.BAND_*.LRLon", "sidecar.BAND_*.LRLat"],
+    "lower_left": ["sidecar.BAND_*.LLLon", "sidecar.BAND_*.LLLat"]
+  },
+  "metadata": {
+    "name": "file.name",
+    "image_url": "file.path",
+    "sidecar_path": "./{base}.IMD",
+    "captured_at": "sidecar.IMAGE_1.firstLineTime",
+    "platform": {
+      "satellite_id": "sidecar.IMAGE_1.satId",
+      "mode": "sidecar.IMAGE_1.mode",
+      "scan_direction": "sidecar.IMAGE_1.scanDirection",
+      "catalog_id": "sidecar.IMAGE_1.CatId",
+      "revolution_number": "sidecar.IMAGE_1.revNumber"
+    },
+    "product": {
+      "generation_time": "sidecar.generationTime",
+      "order_id": "sidecar.productOrderId",
+      "product_catalog_id": "sidecar.productCatalogId",
+      "child_catalog_id": "sidecar.childCatalogId",
+      "descriptor": "sidecar.imageDescriptor",
+      "scale": "sidecar.productScale",
+      "band_id": "sidecar.bandId",
+      "pan_sharpen_algorithm": "sidecar.panSharpenAlgorithm",
+      "rows": "sidecar.numRows",
+      "columns": "sidecar.numColumns",
+      "level": "sidecar.productLevel",
+      "type": "sidecar.productType",
+      "number_of_looks": "sidecar.numberOfLooks",
+      "radiometric_level": "sidecar.radiometricLevel",
+      "radiometric_enhancement": "sidecar.radiometricEnhancement",
+      "bits_per_pixel": "sidecar.bitsPerPixel",
+      "compression_type": "sidecar.compressionType",
+      "resampling_kernel": "sidecar.IMAGE_1.resamplingKernel"
+    },
+    "acquisition": {
+      "line_rate": "sidecar.IMAGE_1.avgLineRate",
+      "exposure_duration": "sidecar.IMAGE_1.exposureDuration",
+      "mean_row_gsd": "sidecar.IMAGE_1.meanCollectedRowGSD",
+      "mean_column_gsd": "sidecar.IMAGE_1.meanCollectedColGSD",
+      "mean_gsd": "sidecar.IMAGE_1.meanCollectedGSD"
+    },
+    "accuracy": {
+      "product_accuracy": "sidecar.productAccuracy",
+      "rmse_2d": "sidecar.RMSE2D",
+      "row_uncertainty": "sidecar.IMAGE_1.rowUncertainty",
+      "column_uncertainty": "sidecar.IMAGE_1.colUncertainty",
+      "pniirs": "sidecar.IMAGE_1.PNIIRS",
+      "cloud_cover": "sidecar.IMAGE_1.cloudCover",
+      "position_knowledge_source": "sidecar.IMAGE_1.positionKnowledgeSrc",
+      "attitude_knowledge_source": "sidecar.IMAGE_1.attitudeKnowledgeSrc"
+    },
+    "illumination": {
+      "sun_azimuth": "sidecar.IMAGE_1.meanSunAz",
+      "sun_elevation": "sidecar.IMAGE_1.meanSunEl"
+    },
+    "view_geometry": {
+      "satellite_azimuth": "sidecar.IMAGE_1.meanSatAz",
+      "satellite_elevation": "sidecar.IMAGE_1.meanSatEl",
+      "in_track_view_angle": "sidecar.IMAGE_1.meanInTrackViewAngle",
+      "cross_track_view_angle": "sidecar.IMAGE_1.meanCrossTrackViewAngle",
+      "off_nadir_view_angle": "sidecar.IMAGE_1.meanOffNadirViewAngle"
+    }
+  },
+  "thumbnail": {
+    "enabled": "sidecar",
+    "sidecar_path": "./{base}-BROWSE.JPG"
+  },
+  "fingerprint": {
+    "enabled": false,
+    "mode": "robust"
+  }
+}

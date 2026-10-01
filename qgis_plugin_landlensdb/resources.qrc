@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/landlensdb" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>

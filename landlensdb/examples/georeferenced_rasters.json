@@ -1,0 +1,28 @@
+{
+  "file_glob": "/path/to/rasters/**/*.@(tif|TIF|tiff|TIFF|vrt|VRT|img|IMG|jp2|JP2)",
+  "name": "file.name",
+  "image_url": "file.path",
+  "geometry": "bounds_from_image",
+  "metadata": {
+    "name": "file.name",
+    "image_url": "file.path",
+    "raster": {
+      "width": "raster.width",
+      "height": "raster.height",
+      "bands": "raster.bands",
+      "projection": "raster.projection",
+      "geotransform": "raster.geotransform",
+      "format": "raster.format"
+    }
+  },
+  "thumbnail": {
+    "enabled": "source",
+    "width": 256,
+    "height": 256,
+    "resampling": "lanczos"
+  },
+  "fingerprint": {
+    "enabled": false,
+    "mode": "robust"
+  }
+}

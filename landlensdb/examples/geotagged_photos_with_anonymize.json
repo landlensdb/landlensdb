@@ -1,0 +1,37 @@
+{
+  "file_glob": "/path/to/photos/**/*.@(jpg|JPG|png|PNG|jpeg|JPEG)",
+  "name": "file.name",
+  "image_url": "file.path",
+  "geometry": "point_from_exif",
+  "metadata": {
+    "name": "file.name",
+    "image_url": "file.path",
+    "captured_at": "exif_parse_time_to_timez.DateTimeOriginal",
+    "camera": {
+      "focal_length": "exif.FocalLength",
+      "make": "exif.Make",
+      "model": "exif.Model"
+    },
+    "sensor": {
+      "altitude": "exif.GPSInfo.GPSAltitude",
+      "compass_angle": "exif.GPSInfo.GPSImgDirection",
+      "orientation": "exif.Orientation"
+    }
+  },
+  "thumbnail": {
+    "enabled": "source",
+    "width": 256,
+    "height": 256,
+    "resampling": "lanczos"
+  },
+  "anonymize": {
+    "enabled": false,
+    "source_dir": "/path/to/photos",
+    "output_dir": "/path/to/anonymized_photos",
+    "overwrite": false
+  },
+  "fingerprint": {
+    "enabled": false,
+    "mode": "robust"
+  }
+}

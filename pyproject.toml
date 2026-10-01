@@ -9,6 +9,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["landlensdb*"]
 
+[tool.setuptools.package-data]
+landlensdb = ["examples/*.json"]
+
 [project]
 name = "landlensdb"
 version = "0.2.0"
@@ -51,6 +54,8 @@ dependencies = [
     "ultralytics>=8.0.0",
     "opencv-python>=4.8.0",
     "gdown>=4.7.0",
+    "PyYAML>=6.0.2",
+    "wcmatch>=10.0"
 ]
 
 [project.optional-dependencies]

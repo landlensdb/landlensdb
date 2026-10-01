@@ -6,5 +6,8 @@
 ## DB Handler
 ::: landlensdb.handlers.db
 
-## Image Handler
-::: landlensdb.handlers.image
+## Image Imports
+::: landlensdb.handlers.importer
+
+## Local Image Helpers
+::: landlensdb.handlers.local

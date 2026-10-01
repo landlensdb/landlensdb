@@ -18,7 +18,7 @@ from timezonefinder import TimezoneFinder
 from PIL import Image
 from tqdm import tqdm
 
-from landlensdb.geoclasses.geoimageframe import GeoImageFrame
+from ..geoclasses.geoimageframe import GeoImageFrame
 
 
 class Mapillary:
